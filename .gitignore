@@ -1,0 +1,23 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+*.zip
+*.tar.gz
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Composer / NPM caches
+composer.lock
+package-lock.json
+yarn.lock
