@@ -9,7 +9,7 @@ final class Expiry
 {
     public static function isExpired(Server $server): bool
     {
-        return !blank($server->expires_at) && Carbon::parse($server->expires_at)->isPast();
+        return ! blank($server->expires_at) && Carbon::parse($server->expires_at)->isPast();
     }
 
     public static function isExpirySuspended(Server $server): bool
@@ -21,7 +21,7 @@ final class Expiry
     {
         $days = config('server-expiry.warning_days_notice', [7]);
 
-        if (!is_array($days) || count($days) === 0) {
+        if (! is_array($days) || count($days) === 0) {
             return 7;
         }
 
@@ -30,7 +30,7 @@ final class Expiry
 
     public static function statusColor(?Server $record): string
     {
-        if (!$record || blank($record->expires_at)) {
+        if (! $record || blank($record->expires_at)) {
             return 'gray';
         }
 
@@ -53,7 +53,7 @@ final class Expiry
 
     public static function remainingText(?Server $record): string
     {
-        if (!$record || blank($record->expires_at)) {
+        if (! $record || blank($record->expires_at)) {
             return trans('server-expiry::strings.remaining_permanent');
         }
 
@@ -75,7 +75,7 @@ final class Expiry
 
     public static function statusText(?Server $record): string
     {
-        if (!$record || blank($record->expires_at)) {
+        if (! $record || blank($record->expires_at)) {
             return trans('server-expiry::strings.status_permanent');
         }
 

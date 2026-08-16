@@ -16,8 +16,7 @@ class ServerExpiringWarningNotification extends Notification implements ShouldQu
         public readonly Server $server,
         public readonly int $warningDay,
         public readonly int $daysRemaining,
-    ) {
-    }
+    ) {}
 
     public function via(mixed $notifiable): array
     {

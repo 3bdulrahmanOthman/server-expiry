@@ -13,7 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('servers', function (Blueprint $table) {
-            if (!Schema::hasColumn('servers', 'expiry_warning_day')) {
+            if (! Schema::hasColumn('servers', 'expiry_warning_day')) {
                 $table->unsignedTinyInteger('expiry_warning_day')
                     ->nullable()
                     ->after('expires_at')

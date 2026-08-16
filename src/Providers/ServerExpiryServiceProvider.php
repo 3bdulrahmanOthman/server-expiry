@@ -27,9 +27,7 @@ use PelicanDev\ServerExpiry\Support\Expiry;
  */
 class ServerExpiryServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-    }
+    public function register(): void {}
 
     public function boot(): void
     {
@@ -52,7 +50,7 @@ class ServerExpiryServiceProvider extends ServiceProvider
                 /** @var Server|null $server */
                 $server = Filament::getTenant();
 
-                if (!$server instanceof Server || !Expiry::isExpirySuspended($server)) {
+                if (! $server instanceof Server || ! Expiry::isExpirySuspended($server)) {
                     return '';
                 }
 

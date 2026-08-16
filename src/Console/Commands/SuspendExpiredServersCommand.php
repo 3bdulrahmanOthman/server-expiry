@@ -25,7 +25,7 @@ class SuspendExpiredServersCommand extends Command
 
     public function handle(): int
     {
-        if (!config('server-expiry.auto_suspend_enabled', true)) {
+        if (! config('server-expiry.auto_suspend_enabled', true)) {
             $this->warn('Auto-suspend is disabled (SERVER_EXPIRY_AUTO_SUSPEND=false). Aborting.');
 
             return self::SUCCESS;

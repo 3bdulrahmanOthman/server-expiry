@@ -2,6 +2,7 @@
 
 namespace PelicanDev\ServerExpiry\Filament\Admin\Resources\Servers\Pages;
 
+use App\Filament\Admin\Resources\Servers\Pages\ListServers;
 use App\Models\Server;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -19,7 +20,7 @@ use PelicanDev\ServerExpiry\Support\Expiry;
  *
  * Registered via ServerResource::registerCustomPages(['index' => CustomListServers::route('/')]).
  */
-class CustomListServers extends \App\Filament\Admin\Resources\Servers\Pages\ListServers
+class CustomListServers extends ListServers
 {
     public function table(Table $table): Table
     {

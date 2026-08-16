@@ -12,9 +12,7 @@ class ServerExpiredNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public readonly Server $server)
-    {
-    }
+    public function __construct(public readonly Server $server) {}
 
     /**
      * Get the notification's delivery channels.

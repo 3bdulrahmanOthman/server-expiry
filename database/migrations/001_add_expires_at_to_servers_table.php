@@ -14,7 +14,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('servers', function (Blueprint $table) {
-            if (!Schema::hasColumn('servers', 'expires_at')) {
+            if (! Schema::hasColumn('servers', 'expires_at')) {
                 $table->timestamp('expires_at')
                     ->nullable()
                     ->after('installed_at')

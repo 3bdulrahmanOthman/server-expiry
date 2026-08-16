@@ -5,8 +5,8 @@ namespace PelicanDev\ServerExpiry;
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Enums\StepPosition;
 use App\Enums\SuspendAction;
-use App\Enums\TabPosition;
 use App\Enums\TablerIcon;
+use App\Enums\TabPosition;
 use App\Filament\Admin\Resources\Servers\Pages\CreateServer;
 use App\Filament\Admin\Resources\Servers\Pages\EditServer;
 use App\Filament\Admin\Resources\Servers\ServerResource;
@@ -90,13 +90,13 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                                     // expired and a new (future) date - or none - is set,
                                     // revive it and reset the warning thresholds so
                                     // reminders start over for the new date.
-                                    if (!blank($state) && strtotime($state) <= time()) {
+                                    if (! blank($state) && strtotime($state) <= time()) {
                                         return;
                                     }
 
                                     $record->forceFill(['expiry_warning_day' => null])->saveQuietly();
 
-                                    if (!Expiry::isExpirySuspended($record)) {
+                                    if (! Expiry::isExpirySuspended($record)) {
                                         return;
                                     }
 

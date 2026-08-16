@@ -65,8 +65,9 @@ class SendExpiryWarningsCommand extends Command
                 continue;
             }
 
-            if (!$server->user) {
+            if (! $server->user) {
                 Log::warning("Server Expiry Plugin: Server ID {$server->id} has no owner; skipping expiry warning.");
+
                 continue;
             }
 
