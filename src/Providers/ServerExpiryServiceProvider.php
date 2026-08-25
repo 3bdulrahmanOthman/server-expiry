@@ -1,6 +1,8 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Providers;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Providers;
 
 use App\Enums\TablerIcon;
 use App\Livewire\AlertBanner;
@@ -12,9 +14,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
-use PelicanDev\ServerExpiry\Console\Commands\SendExpiryWarningsCommand;
-use PelicanDev\ServerExpiry\Console\Commands\SuspendExpiredServersCommand;
-use PelicanDev\ServerExpiry\Support\Expiry;
+use SquadronStrike\ServerExpiry\Console\Commands\SendExpiryWarningsCommand;
+use SquadronStrike\ServerExpiry\Console\Commands\SuspendExpiredServersCommand;
+use SquadronStrike\ServerExpiry\Support\Expiry;
 
 /**
  * Auto-discovered service provider (Pelican scans src/Providers/).

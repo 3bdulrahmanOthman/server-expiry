@@ -1,6 +1,8 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Support;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Support;
 
 use App\Models\Server;
 use Illuminate\Support\Carbon;

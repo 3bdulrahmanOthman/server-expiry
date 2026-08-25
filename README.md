@@ -155,4 +155,4 @@ Found a bug or want a feature? Open an issue on the
 
 ## License
 
-[MIT](LICENSE) © fiverr.com/mrabdulrahman_
+[MIT](LICENSE) © Abdulrahman Othman

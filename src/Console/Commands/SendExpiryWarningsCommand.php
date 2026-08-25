@@ -1,13 +1,15 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Console\Commands;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Console\Commands;
 
 use App\Enums\ServerState;
 use App\Models\Server;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
-use PelicanDev\ServerExpiry\Notifications\ServerExpiringWarningNotification;
+use SquadronStrike\ServerExpiry\Notifications\ServerExpiringWarningNotification;
 use Throwable;
 
 class SendExpiryWarningsCommand extends Command

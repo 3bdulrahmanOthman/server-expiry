@@ -1,6 +1,8 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Notifications;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Notifications;
 
 use App\Models\Server;
 use Illuminate\Bus\Queueable;

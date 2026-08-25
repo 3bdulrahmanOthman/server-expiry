@@ -1,6 +1,8 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Console\Commands;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Console\Commands;
 
 use App\Enums\ServerState;
 use App\Enums\SuspendAction;
@@ -9,7 +11,7 @@ use App\Services\Servers\SuspensionService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
-use PelicanDev\ServerExpiry\Notifications\ServerExpiredNotification;
+use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
 use Throwable;
 
 class SuspendExpiredServersCommand extends Command

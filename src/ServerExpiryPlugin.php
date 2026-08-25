@@ -1,6 +1,8 @@
 <?php
 
-namespace PelicanDev\ServerExpiry;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry;
 
 use App\Contracts\Plugins\HasPluginSettings;
 use App\Enums\StepPosition;
@@ -23,8 +25,8 @@ use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Wizard\Step;
-use PelicanDev\ServerExpiry\Filament\Admin\Resources\Servers\Pages\CustomListServers;
-use PelicanDev\ServerExpiry\Support\Expiry;
+use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\CustomListServers;
+use SquadronStrike\ServerExpiry\Support\Expiry;
 use Throwable;
 
 class ServerExpiryPlugin implements HasPluginSettings, Plugin
@@ -42,7 +44,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
             // Client-side "Expiration" page for each server (owner-only).
             $panel->discoverPages(
                 plugin_path($this->getId(), 'src/Filament/Server/Pages'),
-                'PelicanDev\ServerExpiry\Filament\Server\Pages',
+                'SquadronStrike\ServerExpiry\Filament\Server\Pages',
             );
 
             return;

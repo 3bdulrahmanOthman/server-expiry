@@ -1,13 +1,15 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Filament\Admin\Resources\Servers\Pages;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages;
 
 use App\Filament\Admin\Resources\Servers\Pages\ListServers;
 use App\Models\Server;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
-use PelicanDev\ServerExpiry\Support\Expiry;
+use SquadronStrike\ServerExpiry\Support\Expiry;
 
 /**
  * Extends Pelican's admin server list page and appends an "Expires At"

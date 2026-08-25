@@ -1,13 +1,13 @@
 {
     "id": "server-expiry",
     "name": "Server Expiry & Auto-Suspend",
-    "author": "fiverr.com/mrabdulrahman_",
+    "author": "Abdulrahman Othman",
     "version": "1.1.0",
     "description": "Adds server expiration dates and automated suspension capabilities to Pelican Panel.",
     "category": "plugin",
     "url": "https://github.com/3bdulrahmanOthman/server-expiry",
     "update_url": "https://raw.githubusercontent.com/3bdulrahmanOthman/server-expiry/main/update.json",
-    "namespace": "PelicanDev\\ServerExpiry",
+    "namespace": "SquadronStrike\\ServerExpiry",
     "class": "ServerExpiryPlugin",
     "panels": [
         "admin",

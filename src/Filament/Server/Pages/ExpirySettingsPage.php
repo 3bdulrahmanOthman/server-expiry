@@ -1,6 +1,8 @@
 <?php
 
-namespace PelicanDev\ServerExpiry\Filament\Server\Pages;
+declare(strict_types=1);
+
+namespace SquadronStrike\ServerExpiry\Filament\Server\Pages;
 
 use App\Enums\TablerIcon;
 use App\Filament\Server\Pages\ServerFormPage;
@@ -10,7 +12,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
-use PelicanDev\ServerExpiry\Support\Expiry;
+use SquadronStrike\ServerExpiry\Support\Expiry;
 
 /**
  * Client-facing "Expiration" page for a single server. Registered on the
