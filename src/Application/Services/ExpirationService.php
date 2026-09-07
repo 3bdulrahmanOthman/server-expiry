@@ -13,6 +13,7 @@ use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\InvalidExpirationOp
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\GracePeriod;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCreated;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCleared;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
@@ -66,7 +67,13 @@ final class ExpirationService implements ExpirationServiceInterface
         $this->repository->setExpiration($serverId, $expirationDate);
 
         // Dispatch domain event
-        Event::dispatch(new ExpirationSet($serverId, $expirationDate, new DateTimeImmutable('now')));
+        if ($currentExpiration->isPermanent()) {
+            // Server was previously permanent (no expiration), so this is a creation
+            Event::dispatch(new ExpirationCreated($serverId, $expirationDate, new DateTimeImmutable('now')));
+        } else {
+            // Server already had an expiration date, so this is an update
+            Event::dispatch(new ExpirationSet($serverId, $expirationDate, new DateTimeImmutable('now')));
+        }
     }
 
     /**
