@@ -35,11 +35,7 @@ class ServerExpiryServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Schedule::command(SendExpiryWarningsCommand::class)
-            ->everyMinute()
-            ->withoutOverlapping();
-
-        Schedule::command(SuspendExpiredServersCommand::class)
+        Schedule::command(ProcessServerExpirationCommand::class)
             ->everyMinute()
             ->withoutOverlapping();
 
