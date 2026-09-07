@@ -33,6 +33,16 @@ final class ExpirationService implements ExpirationServiceInterface
     ) {}
 
     /**
+     * Get the expiration repository.
+     *
+     * @return ExpirationRepository
+     */
+    public function getRepository(): ExpirationRepository
+    {
+        return $this->repository;
+    }
+
+    /**
      * Set an expiration date for a server.
      */
     public function setExpiration(string $serverId, ExpirationDate $expirationDate): void
@@ -277,5 +287,25 @@ final class ExpirationService implements ExpirationServiceInterface
         }
 
         return null;
+    }
+
+    /**
+     * Check if auto-suspension is enabled.
+     *
+     * @return bool True if auto-suspension is enabled
+     */
+    public function isAutoSuspendEnabled(): bool
+    {
+        return $this->repository->isAutoSuspendEnabled();
+    }
+
+    /**
+     * Check if owner notifications are enabled on suspension.
+     *
+     * @return bool True if owner notifications are enabled
+     */
+    public function isNotifyOwnerOnSuspendEnabled(): bool
+    {
+        return $this->repository->isNotifyOwnerOnSuspendEnabled();
     }
 }

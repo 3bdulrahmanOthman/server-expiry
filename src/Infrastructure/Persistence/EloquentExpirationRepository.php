@@ -86,7 +86,7 @@ class EloquentExpirationRepository implements ExpirationRepository
 
         // Set expires_at to NULL to make it permanent
         DB::table('servers')
-            ->where('server_id', $serverId)
+            ->where('id', $serverId)
             ->update(['expires_at' => null]);
     }
 
@@ -132,5 +132,69 @@ class EloquentExpirationRepository implements ExpirationRepository
     public function isNotifyOwnerOnSuspendEnabled(): bool
     {
         return config('server-expiry.notify_owner_on_suspend', true);
+    }
+
+    /**
+     * Get the suspension reason for a server.
+     *
+     * @param string $serverId The unique identifier of the server
+     * @return string|null The suspension reason ('expiration', 'manual') or null if not suspended or reason unknown
+     */
+    public function getSuspensionReason(string $serverId): ?string
+    {
+        // Check if the servers table exists and has the suspension_reason column
+        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'suspension_reason')) {
+            // If table/column doesn't exist yet, we cannot determine the reason
+            return null;
+        }
+
+        // Get the suspension_reason value from the servers table
+        $reason = DB::table('servers')
+            ->where('id', $serverId)
+            ->value('suspension_reason');
+
+        return $reason;
+    }
+
+    /**
+     * Set the suspension reason to expiration for a server.
+     * This indicates that the server is suspended due to expiration.
+     *
+     * @param string $serverId The unique identifier of the server
+     * @return void
+     */
+    public function setSuspensionDueToExpiration(string $serverId): void
+    {
+        // Check if the servers table exists and has the suspension_reason column
+        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'suspension_reason')) {
+            // If table/column doesn't exist yet, we cannot persist the data
+            return;
+        }
+
+        // Update the suspension_reason value in the servers table
+        DB::table('servers')
+            ->where('id', $serverId)
+            ->update(['suspension_reason' => 'expiration']);
+    }
+
+    /**
+     * Clear the suspension reason for a server.
+     * This is used when the server is no longer suspended due to expiration.
+     *
+     * @param string $serverId The unique identifier of the server
+     * @return void
+     */
+    public function clearSuspensionDueToExpiration(string $serverId): void
+    {
+        // Check if the servers table exists and has the suspension_reason column
+        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'suspension_reason')) {
+            // If table/column doesn't exist yet, we cannot persist the data
+            return;
+        }
+
+        // Set suspension_reason to NULL
+        DB::table('servers')
+            ->where('id', $serverId)
+            ->update(['suspension_reason' => null]);
     }
 }
