@@ -11,8 +11,12 @@ use App\Services\Servers\SuspensionService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
+use SquadronStrike\ServerExpiry\Domain\Events\ServerRenewed;
+use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiringWarningNotification;
 use Throwable;
@@ -94,6 +98,14 @@ class ProcessServerExpirationCommand extends Command
         $warningCount = 0;
 
         foreach ($servers as $server) {
+            // Refresh the server to get the latest status and user
+            $server->refresh();
+
+            // Skip if server is now suspended or has no user
+            if ($server->status === ServerState::Suspended->value || ! $server->user) {
+                continue;
+            }
+
             // Check if server is in a warning period
             $warningThreshold = $this->expirationService->processWarnings($server->id);
 
@@ -102,62 +114,41 @@ class ProcessServerExpirationCommand extends Command
                 continue;
             }
 
-            // Check idempotency: have we already sent this warning threshold for this server?
-            $alreadyNotified = false;
-            if (Schema::hasTable('notification_idempotency')) {
-                $alreadyNotified = DB::table('notification_idempotency')
-                    ->where('server_id', $server->id)
-                    ->where('notification_type', 'expiry_warning')
-                    ->where('identifier', (string) $warningThreshold)
-                    ->exists();
-            }
+            // Attempt to claim the warning notification for this server and threshold
+            $claimed = $this->claimNotification(
+                $server->id,
+                'expiry_warning',
+                (string) $warningThreshold
+            );
 
-            if ($alreadyNotified) {
-                // Already sent this warning, skip
+            if (! $claimed) {
+                // Either already sent, currently being processed, or failed but not ready to retry
                 continue;
             }
 
-            if (! $server->user) {
-                Log::warning("Server Expiry Plugin: Server ID {$server->id} has no owner; skipping expiry warning.");
-
-                continue;
-            }
-
+            // Dispatch event that a warning should be sent (listener will handle the actual sending)
             try {
-                // Calculate days remaining for the notification
-                $daysRemaining = (int) ceil(now()->diffInSeconds($server->expires_at) / 86400);
-
-                $server->user->notify(new ServerExpiringWarningNotification(
-                    $server,
-                    $warningThreshold,
-                    $daysRemaining
+                Event::dispatch(new ExpirationWarning(
+                    $server->id,
+                    \SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold::fromDays($warningThreshold),
+                    new \DateTimeImmutable('now')
                 ));
-
-                // Record the notification sent
-                if (Schema::hasTable('notification_idempotency')) {
-                    DB::table('notification_idempotency')->insert([
-                        'server_id' => $server->id,
-                        'notification_type' => 'expiry_warning',
-                        'identifier' => (string) $warningThreshold,
-                        'sent_at' => now(),
-                    ]);
-                }
-
-                $this->line(
-                    "   -> Expiry warning ({$warningThreshold}d) sent for Server ID {$server->id} (Name: {$server->name}) - {$daysRemaining} day(s) remaining"
+            } catch (\Throwable $e) {
+                Log::error("Server Expiry Plugin: Failed to dispatch ExpirationWarning event for server ID {$server->id}: {$e->getMessage()}");
+                // We still claimed the notification, so we need to mark it as failed to allow retry
+                $this->markNotificationAsFailed(
+                    $server->id,
+                    'expiry_warning',
+                    (string) $warningThreshold
                 );
-                $warningCount++;
-            } catch (Throwable $exception) {
-                Log::error(
-                    "Server Expiry Plugin: Failed to send expiry warning for server ID {$server->id}: {$exception->getMessage()}"
-                );
-                $this->error(
-                    "   -> Failed to send warning for Server ID {$server->id}: {$exception->getMessage()}"
-                );
-
-                // Continue with other servers
+                // Continue to next server
                 continue;
             }
+
+            $this->line(
+                "   -> Expiry warning ({$warningThreshold}d) dispatched for Server ID {$server->id} (Name: {$server->name})"
+            );
+            $warningCount++;
         }
 
         return $warningCount;
@@ -188,6 +179,14 @@ class ProcessServerExpirationCommand extends Command
         $suspensionCount = 0;
 
         foreach ($servers as $server) {
+            // Refresh the server to get the latest status
+            $server->refresh();
+
+            // Skip if server is now suspended
+            if ($server->status === ServerState::Suspended->value) {
+                continue;
+            }
+
             // Use expiration service to check if server should be suspended due to expiration
             if (! $this->expirationService->processExpiration($server->id)) {
                 $this->info(
@@ -197,48 +196,42 @@ class ProcessServerExpirationCommand extends Command
                 continue;
             }
 
+            // Attempt to claim the expiration notification for this server
+            $claimed = $this->claimNotification(
+                $server->id,
+                'server_expired',
+                'expiration'
+            );
+
+            if (! $claimed) {
+                // Either already sent, currently being processed, or failed but not ready to retry
+                continue;
+            }
+
             // Attempt to suspend the server
             try {
                 $this->suspensionService->handle($server, SuspendAction::Suspend);
 
-                // Send expiration notification if enabled
-                if ($this->expirationService->isNotifyOwnerOnSuspendEnabled() && $server->user) {
-                    try {
-                        // Check idempotency: have we already sent an expiration notification for this server?
-                        $alreadyNotified = false;
-                        if (Schema::hasTable('notification_idempotency')) {
-                            $alreadyNotified = DB::table('notification_idempotency')
-                                ->where('server_id', $server->id)
-                                ->where('notification_type', 'server_expired')
-                                ->whereNull('identifier')
-                                ->exists();
-                        }
-
-                        if (! $alreadyNotified) {
-                            $server->user->notify(new ServerExpiredNotification($server));
-
-                            // Record the notification sent
-                            if (Schema::hasTable('notification_idempotency')) {
-                                DB::table('notification_idempotency')->insert([
-                                    'server_id' => $server->id,
-                                    'notification_type' => 'server_expired',
-                                    'identifier' => null,
-                                    'sent_at' => now(),
-                                ]);
-                            }
-                        }
-
-                        $this->line("   -> Sent expiration notification to owner (ID: {$server->owner_id})");
-                    } catch (Throwable $exception) {
-                        Log::error(
-                            "Failed to send server expiration notification to user #{$server->owner_id}: {$exception->getMessage()}"
-                        );
-                        // Don't fail the suspension if notification fails
-                    }
+                // Dispatch event that server was successfully suspended due to expiration
+                try {
+                    Event::dispatch(new ServerSuspendedByExpiration(
+                        $server->id,
+                        new \DateTimeImmutable('now')
+                    ));
+                } catch (\Throwable $e) {
+                    Log::error("Server Expiry Plugin: Failed to dispatch ServerSuspendedByExpiration event for server ID {$server->id}: {$e->getMessage()}");
+                    // We still claimed the notification, so we need to mark it as failed to allow retry
+                    $this->markNotificationAsFailed(
+                        $server->id,
+                        'server_expired',
+                        'expiration'
+                    );
+                    // Continue to next server
+                    continue;
                 }
 
                 $this->line(
-                    "   -> Suspended Server ID {$server->id} (Name: {$server->name}) - Expired at: {$server->expires_at}"
+                    "   -> Suspension dispatched for Server ID {$server->id} (Name: {$server->name}) - Expired at: {$server->expires_at}"
                 );
                 $suspensionCount++;
             } catch (Throwable $exception) {
@@ -249,6 +242,13 @@ class ProcessServerExpirationCommand extends Command
                     "   -> Failed to suspend server ID {$server->id}: {$exception->getMessage()}"
                 );
 
+                // Mark the notification as failed so it can be retried
+                $this->markNotificationAsFailed(
+                    $server->id,
+                    'server_expired',
+                    'expiration'
+                );
+
                 // Continue with other servers
                 continue;
             }
@@ -257,5 +257,79 @@ class ProcessServerExpirationCommand extends Command
         $this->info("Successfully auto-suspended {$suspensionCount} expired server(s).");
 
         return $suspensionCount;
+    }
+
+    /**
+     * Attempt to claim a notification for processing.
+     *
+     * @param  string  $serverId
+     * @param  string  $notificationType
+     * @param  string  $identifier
+     * @return bool True if claimed, false otherwise
+     */
+    private function claimNotification(string $serverId, string $notificationType, string $identifier): bool
+    {
+        return DB::transaction(function () use ($serverId, $notificationType, $identifier) {
+            try {
+                // Try to update an existing row that is claimable
+                $affected = DB::table('notification_idempotency')
+                    ->where('server_id', $serverId)
+                    ->where('notification_type', $notificationType)
+                    ->where('identifier', $identifier)
+                    ->where(function ($query) {
+                        $query->where('status', 'pending')
+                            ->orWhere('status', 'failed')
+                            ->orWhereRaw("status = 'processing' AND last_attempt_at < NOW() - INTERVAL 5 MINUTE");
+                    })
+                    ->update([
+                        'status' => 'processing',
+                        'attempts' => DB::raw('attempts + 1'),
+                        'last_attempt_at' => now(),
+                    ]);
+
+                if ($affected > 0) {
+                    return true;
+                }
+
+                // Try to insert a new row (if it doesn't exist)
+                DB::table('notification_idempotency')->insert([
+                    'server_id' => $serverId,
+                    'notification_type' => $notificationType,
+                    'identifier' => $identifier,
+                    'status' => 'processing',
+                    'attempts' => 1,
+                    'last_attempt_at' => now(),
+                ]);
+
+                return true;
+            } catch (\Exception $e) {
+                // If it's a duplicate key error, we treat it as not claimed (another process won the race)
+                if ($e instanceof \Illuminate\Database\QueryException && $e->getCode() === '23000') {
+                    return false;
+                }
+                // Re-throw other exceptions
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Mark a notification as failed (to allow retry).
+     *
+     * @param  string  $serverId
+     * @param  string  $notificationType
+     * @param  string  $identifier
+     * @return void
+     */
+    private function markNotificationAsFailed(string $serverId, string $notificationType, string $identifier): void
+    {
+        DB::table('notification_idempotency')
+            ->where('server_id', $serverId)
+            ->where('notification_type', $notificationType)
+            ->where('identifier', $identifier)
+            ->update([
+                'status' => 'failed',
+                'last_attempt_at' => now(),
+            ]);
     }
 }

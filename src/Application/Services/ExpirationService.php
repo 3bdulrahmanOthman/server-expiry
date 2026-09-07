@@ -15,9 +15,11 @@ use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\GracePeriod;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCleared;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
-use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerRenewed;
+use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
+use Illuminate\Support\Facades\Event;
 
 /**
  * Application service for expiration management.
@@ -64,9 +66,7 @@ final class ExpirationService implements ExpirationServiceInterface
         $this->repository->setExpiration($serverId, $expirationDate);
 
         // Dispatch domain event
-        // Note: In a real implementation, we would use an event dispatcher
-        // For now, we'll note that events should be dispatched
-        // $this->eventDispatcher->dispatch(new ExpirationSet($serverId, $expirationDate->getDateTime()));
+        Event::dispatch(new ExpirationSet($serverId, $expirationDate, new DateTimeImmutable('now')));
     }
 
     /**
@@ -85,7 +85,7 @@ final class ExpirationService implements ExpirationServiceInterface
         $this->repository->clearExpiration($serverId);
 
         // Dispatch domain event
-        // $this->eventDispatcher->dispatch(new ExpirationCleared($serverId));
+        Event::dispatch(new ExpirationCleared($serverId, new DateTimeImmutable('now')));
     }
 
     /**
@@ -115,7 +115,8 @@ final class ExpirationService implements ExpirationServiceInterface
         // Persist the new expiration date
         $this->repository->setExpiration($serverId, $newExpiration);
 
-        return $newExpiration;
+        // Dispatch domain event
+        Event::dispatch(new ExpirationSet($serverId, $newExpiration, new DateTimeImmutable('now')));
     }
 
     /**
@@ -138,7 +139,7 @@ final class ExpirationService implements ExpirationServiceInterface
         $this->repository->setExpiration($serverId, $newExpirationDate);
 
         // Dispatch domain event
-        // $this->eventDispatcher->dispatch(new ServerRenewed($serverId, $newExpirationDate->getDateTime()));
+        Event::dispatch(new ServerRenewed($serverId, $newExpirationDate, new DateTimeImmutable('now')));
     }
 
     /**
@@ -253,7 +254,7 @@ final class ExpirationService implements ExpirationServiceInterface
         // The actual suspension logic would be in a command or scheduler that uses this service
 
         // Dispatch domain event (would be done by caller)
-        // $this->eventDispatcher->dispatch(new ServerSuspendedByExpiration($serverId, $now));
+        // Event::dispatch(new ServerSuspendedByExpiration($serverId, $now));
 
         return true;
     }
