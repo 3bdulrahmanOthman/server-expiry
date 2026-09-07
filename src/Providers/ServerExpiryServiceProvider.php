@@ -7,6 +7,7 @@ namespace SquadronStrike\ServerExpiry\Providers;
 use App\Enums\TablerIcon;
 use App\Livewire\AlertBanner;
 use App\Models\Server;
+use Facade\FlareClient\Stacktrace;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -17,6 +18,7 @@ use Livewire\Livewire;
 use SquadronStrike\ServerExpiry\Console\Commands\SendExpiryWarningsCommand;
 use SquadronStrike\ServerExpiry\Console\Commands\SuspendExpiredServersCommand;
 use SquadronStrike\ServerExpiry\Support\Expiry;
+use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 
 /**
  * Auto-discovered service provider (Pelican scans src/Providers/).
@@ -80,5 +82,33 @@ class ServerExpiryServiceProvider extends ServiceProvider
                 return '';
             },
         );
+
+        // Listen for Server model updates to set suspension reason based on context.
+        Server::updating(function (Server $server) {
+            // Determine if status is changing to suspended.
+            $originalStatus = $server->getOriginal('status');
+            $newStatus = $server->status;
+
+            // Import ServerState here to avoid top-level use if not needed.
+            $suspendedValue = \App\Enums\ServerState::Suspended->value;
+
+            if ($newStatus === $suspendedValue && $originalStatus !== $suspendedValue) {
+                // Status is changing to suspended.
+                if (SuspensionContext::isExpirationSuspensionInProgress()) {
+                    $server->suspension_reason = 'expiration';
+                } else {
+                    // Assume manual suspension if not triggered by our expiration command.
+                    $server->suspension_reason = 'manual';
+                }
+                // Clear the flag after use.
+                SuspensionContext::setExpirationSuspensionInProgress(false);
+            }
+
+            // Determine if status is changing from suspended to not suspended.
+            if ($originalStatus === $suspendedValue && $newStatus !== $suspendedValue) {
+                // Server is being unsuspended.
+                $server->suspension_reason = null;
+            }
+        });
     }
 }

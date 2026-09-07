@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
+use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 use Throwable;
 
 class SuspendExpiredServersCommand extends Command
@@ -67,19 +68,25 @@ class SuspendExpiredServersCommand extends Command
                 continue;
             }
 
+            // Mark that we are about to perform an expiration-based suspension.
+            SuspensionContext::setExpirationSuspensionInProgress(true);
             try {
                 // Uses Pelican's SuspensionService: updates the `status` column to
                 // `ServerState::Suspended` AND tells Wings to re-sync the server
                 // state via the daemon API, which stops the server on the node.
                 $this->suspensionService->handle($server, SuspendAction::Suspend);
 
-                // Mark that this suspension is due to expiration
-                $this->expirationService->getRepository()->setSuspensionDueToExpiration($server->id);
+                // Note: The actual suspension_reason will be set by the model event listener.
             } catch (Throwable $exception) {
+                // Ensure flag is cleared even on failure.
+                SuspensionContext::setExpirationSuspensionInProgress(false);
                 Log::error("Server Expiry Plugin: Failed to suspend server ID {$server->id} ('{$server->name}'): {$exception->getMessage()}");
                 $this->error("   -> Failed to suspend server ID {$server->id}: {$exception->getMessage()}");
 
                 continue;
+            } finally {
+                // Clear flag in case try block succeeded without exception.
+                SuspensionContext::setExpirationSuspensionInProgress(false);
             }
 
             // Write a system log entry for audit trails.

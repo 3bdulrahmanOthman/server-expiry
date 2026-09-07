@@ -23,7 +23,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs\Tab;
+use Filant\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Wizard\Step;
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\CustomListServers;
 use SquadronStrike\ServerExpiry\Support\Expiry;
@@ -43,7 +43,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
         if ($panel->getId() === 'server') {
             // Client-side "Expiration" page for each server (owner-only).
             $panel->discoverPages(
-                plugin_path($this->getId(), 'src/Filament/Server/Pages'),
+                plugin_path($this->getId(), 'src/Filant/Server/Pages'),
                 'SquadronStrike\ServerExpiry\Filament\Server\Pages',
             );
 
@@ -98,28 +98,27 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
 
                                     $record->forceFill(['expiry_warning_day' => null])->saveQuietly();
 
-                                    if (! Expiry::isExpirySuspended($record)) {
-                                        return;
-                                    }
+                                    // Only unsuspend if the suspension was due to expiration.
+                                    if ($record->isSuspended() && $record->suspension_reason === 'expiration') {
+                                        try {
+                                            app(SuspensionService::class)->handle($record, SuspendAction::Unsuspend);
+                                        } catch (Throwable $exception) {
+                                            report($exception);
 
-                                    try {
-                                        app(SuspensionService::class)->handle($record, SuspendAction::Unsuspend);
-                                    } catch (Throwable $exception) {
-                                        report($exception);
+                                            Notification::make()
+                                                ->title(trans('server-expiry::strings.revival_failed'))
+                                                ->body($exception->getMessage())
+                                                ->danger()
+                                                ->send();
+
+                                            return;
+                                        }
 
                                         Notification::make()
-                                            ->title(trans('server-expiry::strings.revival_failed'))
-                                            ->body($exception->getMessage())
-                                            ->danger()
+                                            ->title(trans('server-expiry::strings.revived'))
+                                            ->success()
                                             ->send();
-
-                                        return;
                                     }
-
-                                    Notification::make()
-                                        ->title(trans('server-expiry::strings.revived'))
-                                        ->success()
-                                        ->send();
                                 })
                                 ->columnSpanFull(),
                             Placeholder::make('expiry_status')
@@ -222,7 +221,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
         ]);
 
         Notification::make()
-            ->title(trans('server-expiry::strings.settings_saved'))
+            ->title(trans('server-exiry::strings.settings_saved'))
             ->success()
             ->send();
     }
