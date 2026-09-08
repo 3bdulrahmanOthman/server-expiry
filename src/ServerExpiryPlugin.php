@@ -45,7 +45,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
         if ($panel->getId() === 'server') {
             // Client-side "Expiration" page for each server (owner-only).
             $panel->discoverPages(
-                plugin_path($this->getId(), 'src/Filant/Server/Pages'),
+                plugin_path($this->getId(), 'src/Filament/Server/Pages'),
                 'SquadronStrike\ServerExpiry\Filament\Server\Pages',
             );
 

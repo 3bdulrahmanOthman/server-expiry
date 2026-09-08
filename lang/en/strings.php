@@ -48,4 +48,7 @@ return [
     'bulk_action_renew' => 'Renew Selected Servers',
     'bulk_action_clear' => 'Clear Selected Expirations',
     'suspension_reason_label' => 'Suspension Reason',
+    'expiration_details' => 'Expiration Details',
+    'suspension_info' => 'Suspension Information',
+    'action_set_expiration_tooltip' => 'Set a custom expiration date',
 ];
