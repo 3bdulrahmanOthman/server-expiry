@@ -20,7 +20,6 @@ return new class extends Migration
         Schema::create('webhook_endpoints', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->unique();
             $table->string('url');
             $table->string('secret_key')->nullable();
             $table->json('events')->default([]); // List of events to listen to
