@@ -40,4 +40,12 @@ return [
     'settings_notify_label' => 'Notify owner on suspension',
     'settings_notify_helper' => 'Send an email and in-panel notification when a server is auto-suspended.',
     'settings_saved' => 'Server Expiry settings saved.',
+    'action_set_expiration' => 'Set Expiration',
+    'action_check_status' => 'Check Status',
+    'action_extend_tooltip' => 'Extend expiration by 30 days',
+    'action_renew_tooltip' => 'Renew server with new expiration date',
+    'action_clear_tooltip' => 'Clear expiration date (make permanent)',
+    'bulk_action_renew' => 'Renew Selected Servers',
+    'bulk_action_clear' => 'Clear Selected Expirations',
+    'suspension_reason_label' => 'Suspension Reason',
 ];

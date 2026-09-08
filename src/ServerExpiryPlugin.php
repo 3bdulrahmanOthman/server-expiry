@@ -23,9 +23,11 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Schemas\Components\Section;
-use Filant\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Wizard\Step;
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\CustomListServers;
+use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookEndpoint\WebhookEndpointResource;
+use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookDelivery\WebhookDeliveryResource;
 use SquadronStrike\ServerExpiry\Support\Expiry;
 use Throwable;
 
@@ -87,6 +89,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                                 ->seconds(false)
                                 ->native(false)
                                 ->live(onBlur: true)
+                                ->rule('after_or_equal:today')
                                 ->afterStateUpdated(function ($state, Server $record) {
                                     // Renewal: if the server was suspended because it
                                     // expired and a new (future) date - or none - is set,
@@ -152,6 +155,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                                 ->nullable()
                                 ->seconds(false)
                                 ->native(false)
+                                ->rule('after_or_equal:today')
                                 ->columnSpanFull(),
                         ])
                         ->collapsible(),
@@ -165,6 +169,14 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
         ServerResource::registerCustomPages([
             'index' => CustomListServers::route('/'),
         ]);
+
+        // Register webhook endpoint and delivery resources
+        if ($panel->getId() === 'admin') {
+            \Filament\Resources\Resource::register([
+                WebhookEndpointResource::class,
+                WebhookDeliveryResource::class,
+            ]);
+        }
     }
 
     public function boot(Panel $panel): void
@@ -221,7 +233,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
         ]);
 
         Notification::make()
-            ->title(trans('server-exiry::strings.settings_saved'))
+            ->title(trans('server-expiry::strings.settings_saved'))
             ->success()
             ->send();
     }
