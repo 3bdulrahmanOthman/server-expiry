@@ -128,7 +128,7 @@ class ExpirySettingsPage extends ServerFormPage
                                 in_array($record->suspension_reason ?? '', ['expiration', 'manual', 'other']))
                             ->columnSpanFull(),
                     ])
-                    ->visible(fn (Server $record): bool => $record->isSuspended())
+                    ->visible(fn (?Server $record): bool => $record !== null && $record->isSuspended())
                     ->columnSpanFull(),
             ]);
     }
