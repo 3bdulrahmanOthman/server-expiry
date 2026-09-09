@@ -15,7 +15,6 @@ use Filament\Forms\Form;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Split;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -52,66 +51,58 @@ class ExpirySettingsPage extends ServerFormPage
                 // Status section with visual indicator
                 Section::make(trans('server-expiry::strings.section_title'))
                     ->schema([
-                        Split::make([
-                            // Status icon with visual indicator
-                            Forms\Components\Placeholder::make('status_icon')
-                                ->label(trans('server-expiry::strings.status_label'))
-                                ->content(fn (Server $record): string => match (Expiry::statusColor($record)) {
-                                    'gray' => '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>',
-                                    'success' => '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-                                    'warning' => '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z"/></svg>',
-                                    'danger' => '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z"/></svg>',
-                                    default => '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-                                })
-                                ->columnSpan(1),
-                            // Status text
-                            Forms\Components\Placeholder::make('status_text')
-                                ->label('')
-                                ->content(fn (Server $record): string => Expiry::statusText($record))
-                                ->columnSpan(2),
-                        ])->columnSpanFull(),
+                        Forms\Components\Placeholder::make('status_icon')
+                            ->label(trans('server-expiry::strings.status_label'))
+                            ->content(fn (Server $record): string => match (Expiry::statusColor($record)) {
+                                'gray' => '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V9a2 2 0 002-2H5a2 2 0 002 2v10a2 2 0 002 2z"/></svg>',
+                                'success' => '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                                'warning' => '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z"/></svg>',
+                                'danger' => '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z"/></svg>',
+                                default => '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                            })
+                            ->columnSpan([1]),
+                        Forms\Components\Placeholder::make('status_text')
+                            ->label('')
+                            ->content(fn (Server $record): string => Expiry::statusText($record))
+                            ->columnSpan([2]),
                     ])
-                    ->columns([2])
+                    ->columns([3])
                     ->columnSpanFull(),
 
                 // Expiration details section
                 Section::make(trans('server-expiry::strings.expiration_details'))
                     ->schema([
-                        Split::make([
-                            // Expiration date
-                            Forms\Components\Placeholder::make('expires_at')
-                                ->label(trans('server-expiry::strings.field_label'))
-                                ->content(fn (Server $record): ?string =>
-                                    $record->expires_at ? Carbon::parse($record->expires_at)->format('Y-m-d H:i') : null)
-                                ->placeholder(trans('server-expiry::strings.column_permanent'))
-                                ->columnSpan(1),
-                            // Time remaining
-                            Forms\Components\Placeholder::make('time_remaining')
-                                ->label(trans('server-expiry::strings.remaining_label'))
-                                ->content(fn (Server $record): string => Expiry::remainingText($record))
-                                ->columnSpan(1),
-                        ])->columnSpanFull(),
-
-                        Split::make([
-                            // Expired status badge
-                            Forms\Components\Placeholder::make('is_expired')
-                                ->label('Expired')
-                                ->content(fn (Server $record): string => Expiry::isExpired($record) ?
-                                    '<span class="badge badge-danger">Yes</span>' :
-                                    '<span class="badge badge-success">No</span>')
-                                ->html()
-                                ->columnSpan(1),
-                            // Grace period status badge
-                            Forms\Components\Placeholder::make('in_grace_period')
-                                ->label('In Grace Period')
-                                ->content(fn (Server $record): string =>
-                                    app(ExpirationService::class)->isInGracePeriod($record->getKey()) ?
-                                    '<span class="badge badge-warning">Yes</span>' :
-                                    '<span class="badge badge-success">No</span>')
-                                ->html()
-                                ->columnSpan(1),
-                        ])->columnSpanFull(),
+                        // Expiration date
+                        Forms\Components\Placeholder::make('expires_at')
+                            ->label(trans('server-expiry::strings.field_label'))
+                            ->content(fn (Server $record): ?string =>
+                                $record->expires_at ? Carbon::parse($record->expires_at)->format('Y-m-d H:i') : null)
+                            ->placeholder(trans('server-expiry::strings.column_permanent'))
+                            ->columnSpan([1]),
+                        // Time remaining
+                        Forms\Components\Placeholder::make('time_remaining')
+                            ->label(trans('server-expiry::strings.remaining_label'))
+                            ->content(fn (Server $record): string => Expiry::remainingText($record))
+                            ->columnSpan([1]),
+                        // Expired status badge
+                        Forms\Components\Placeholder::make('is_expired')
+                            ->label('Expired')
+                            ->content(fn (Server $record): string => Expiry::isExpired($record) ?
+                                '<span class="badge badge-danger">Yes</span>' :
+                                '<span class="badge badge-success">No</span>')
+                            ->html()
+                            ->columnSpan([1]),
+                        // Grace period status badge
+                        Forms\Components\Placeholder::make('in_grace_period')
+                            ->label('In Grace Period')
+                            ->content(fn (Server $record): string =>
+                                app(ExpirationService::class)->isInGracePeriod($record->getKey()) ?
+                                '<span class="badge badge-warning">Yes</span>' :
+                                '<span class="badge badge-success">No</span>')
+                            ->html()
+                            ->columnSpan([1]),
                     ])
+                    ->columns([2])
                     ->columnSpanFull(),
 
                 // Suspension info section (if applicable)

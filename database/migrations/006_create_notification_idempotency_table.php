@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamp('sent_at')->useCurrent();
 
             // Composite unique key to prevent duplicate notifications
-            $table->unique(['server_id', 'notification_type', 'identifier']);
+            $table->unique(['server_id', 'notification_type', 'identifier'], 'notif_idem_unique');
 
             // Indexes for cleanup queries
             $table->index(['server_id', 'notification_type']);

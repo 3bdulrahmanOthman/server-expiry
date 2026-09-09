@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('url');
             $table->string('secret_key')->nullable();
-            $table->json('events')->default([]); // List of events to listen to
+            $table->json('events')->default('[]'); // List of events to listen to
             $table->boolean('active')->default(true);
             $table->integer('failure_count')->default(0);
             $table->timestamp('last_failed_at')->nullable();
