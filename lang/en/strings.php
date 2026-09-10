@@ -13,6 +13,7 @@ return [
     'status_suspended' => 'This server is currently suspended.',
     'status_expired' => 'This server expired at :date and is pending auto-suspension.',
     'status_expiring_soon' => 'Expiring soon on :date.',
+    'status_grace' => 'In grace period until :date',
     'status_active' => 'Active until :date.',
     'column_label' => 'Expires At',
     'column_permanent' => 'Permanent',
