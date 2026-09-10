@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
-use SquadronStrike\ServerExpiry\Domain\Events\ServerRenewed;
+use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiringWarningNotification;
@@ -76,7 +76,6 @@ class ProcessServerExpirationCommand extends Command
 
         if (empty($warningDays)) {
             $this->warn('No warning thresholds configured (SERVER_EXPIRY_WARNING_DAYS). Skipping warning processing.');
-
             return 0;
         }
 
@@ -205,6 +204,24 @@ class ProcessServerExpirationCommand extends Command
 
             if (! $claimed) {
                 // Either already sent, currently being processed, or failed but not ready to retry
+                continue;
+            }
+
+            // Dispatch ServerExpired event
+            try {
+                Event::dispatch(new ServerExpired(
+                    $server->id,
+                    new \DateTimeImmutable('now')
+                ));
+            } catch (\Throwable $e) {
+                // If the event dispatch fails, we mark the notification as failed and continue
+                $this->markNotificationAsFailed(
+                    $server->id,
+                    'server_expired',
+                    'expiration'
+                );
+                Log::error("Server Expiry Plugin: Failed to dispatch ServerExpired event for server ID {$server->id}: {$e->getMessage()}");
+                // Continue to next server (we still claimed the notification, so it will be retried)
                 continue;
             }
 

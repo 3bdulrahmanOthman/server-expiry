@@ -89,8 +89,12 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                                 ->seconds(false)
                                 ->native(false)
                                 ->live(onBlur: true)
-                                ->rule('after_or_equal:today')
-                                ->afterStateUpdated(function ($state, Server $record) {
+                                ->afterStateUpdated(function ($state, ?Server $record) {
+                                    // Guard against null record or missing expires_at
+                                    if (! $record || blank($record->expires_at)) {
+                                        return;
+                                    }
+
                                     // Renewal: if the server was suspended because it
                                     // expired and a new (future) date - or none - is set,
                                     // revive it and reset the warning thresholds so
@@ -113,7 +117,6 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                                                 ->body($exception->getMessage())
                                                 ->danger()
                                                 ->send();
-
                                             return;
                                         }
 
@@ -127,6 +130,26 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                             Placeholder::make('expiry_status')
                                 ->label(trans('server-expiry::strings.status_label'))
                                 ->content(fn (?Server $record): string => Expiry::statusText($record))
+                                ->columnSpanFull(),
+                            // Remaining time
+                            Placeholder::make('remaining_time')
+                                ->label(trans('server-expiry::strings.remaining_label'))
+                                ->content(fn (?Server $record): string => $record !== null ? Expiry::remainingText($record) : trans('server-expiry::strings.column_permanent'))
+                                ->columnSpan([1]),
+                            // Suspension state
+                            Placeholder::make('suspension_state')
+                                ->label(trans('server-expiry::strings.suspension_label'))
+                                ->content(fn (?Server $record): string => $record !== null && $record->isSuspended() ? trans('server-expiry::strings.state_suspended') : trans('server-expiry::strings.state_active'))
+                                ->columnSpan([1]),
+                            // Suspension reason (conditional)
+                            Placeholder::make('suspension_reason')
+                                ->label(trans('server-expiry::strings.suspension_reason_label'))
+                                ->content(fn (?Server $record): string =>
+                                    $record !== null && $record->isSuspended() && $record->suspension_reason
+                                        ? ucfirst($record->suspension_reason)
+                                        : trans('server-expiry::strings.none')
+                                )
+                                ->visible(fn (?Server $record): bool => $record !== null && $record->isSuspended())
                                 ->columnSpanFull(),
                         ])
                         ->collapsible(),
