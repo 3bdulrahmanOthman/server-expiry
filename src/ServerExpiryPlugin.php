@@ -30,6 +30,7 @@ use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookEndpoint\Webhook
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookDelivery\WebhookDeliveryResource;
 use SquadronStrike\ServerExpiry\Support\Expiry;
 use Throwable;
+use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\EditServer as CustomEditServer;
 
 class ServerExpiryPlugin implements HasPluginSettings, Plugin
 {
@@ -191,6 +192,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
         // core page so all core behavior is preserved.
         ServerResource::registerCustomPages([
             'index' => CustomListServers::route('/'),
+            'edit' => CustomEditServer::route('/{record}/edit'),
         ]);
 
         // Register webhook endpoint and delivery resources
