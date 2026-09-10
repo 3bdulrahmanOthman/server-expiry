@@ -7,8 +7,12 @@ namespace SquadronStrike\ServerExpiry\Http\Controllers\Api\Application\Servers;
 use App\Http\Controllers\Api\Application\ApplicationApiController;
 use App\Models\Server;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
+use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ClearExpirationRequest;
+use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ExtendExpirationRequest;
+use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\RenewExpirationRequest;
+use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ShowExpirationRequest;
+use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\UpdateExpirationRequest;
 
 /**
  * Handles API endpoints for server expiration management.
@@ -21,7 +25,7 @@ class ExpirationController extends ApplicationApiController
         parent::__construct();
     }
 
-    public function show(Server $server)
+    public function show(ShowExpirationRequest $request, Server $server)
     {
         $this->authorize('view', $server);
         
@@ -41,14 +45,11 @@ class ExpirationController extends ApplicationApiController
         ]);
     }
 
-    public function update(Request $request, Server $server)
+    public function update(UpdateExpirationRequest $request, Server $server)
     {
         $this->authorize('update', $server);
         
-        $data = $request->validate([
-            'expires_at' => 'required_without:permanent|date|after_or_equal:today',
-            'permanent' => 'sometimes|boolean',
-        ]);
+        $data = $request->validated();
 
         if ($data['permanent'] ?? false) {
             $this->expirationService->clearExpiration($server->id);
@@ -62,13 +63,11 @@ class ExpirationController extends ApplicationApiController
         }
     }
 
-    public function extend(Request $request, Server $server)
+    public function extend(ExtendExpirationRequest $request, Server $server)
     {
         $this->authorize('update', $server);
         
-        $data = $request->validate([
-            'hours' => 'required|integer|min|1',
-        ]);
+        $data = $request->validated();
 
         $interval = new \DateInterval('PT' . $data['hours'] . 'H');
         $newExpiration = $this->expirationService->extendExpiration($server->id, $interval);
@@ -79,14 +78,11 @@ class ExpirationController extends ApplicationApiController
         ]);
     }
 
-    public function renew(Request $request, Server $server)
+    public function renew(RenewExpirationRequest $request, Server $server)
     {
-        $this->authorize('renew', $server);
+        $this->authorize('update', $server);
         
-        $data = $request->validate([
-            'expires_at' => 'required_without:permanent|date|after_or_equal:today',
-            'permanent' => 'sometimes|boolean',
-        ]);
+        $data = $request->validated();
 
         if (($data['permanent'] ?? false) && !$this->expirationService->getExpiration($server->id)->isPermanent()) {
             return response()->json(['message' => 'Cannot renew to permanent'], 400);
@@ -104,9 +100,9 @@ class ExpirationController extends ApplicationApiController
         return response()->json(['message' => 'Server renewed']);
     }
 
-    public function destroy(Server $server)
+    public function destroy(ClearExpirationRequest $request, Server $server)
     {
-        $this->authorize('delete', $server);
+        $this->authorize('update', $server);
         $this->expirationService->clearExpiration($server->id);
         return response()->json(['message' => 'Expiration cleared']);
     }
