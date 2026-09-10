@@ -17,6 +17,7 @@
     "composer_packages": null,
     "providers": [
         "SquadronStrike\\ServerExpiry\\Providers\\ExpirationServiceProvider",
-        "SquadronStrike\\ServerExpiry\\Providers\\WebhookServiceProvider"
+        "SquadronStrike\\ServerExpiry\\Providers\\WebhookServiceProvider",
+        "SquadronStrike\\ServerExpiry\\Providers\\ExpirationApiRouteServiceProvider"
     ]
 }
