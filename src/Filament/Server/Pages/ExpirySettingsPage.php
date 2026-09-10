@@ -51,7 +51,7 @@ class ExpirySettingsPage extends ServerFormPage
                 // Status section with visual indicator
                 Section::make(trans('server-expiry::strings.section_title'))
                     ->schema([
-                        FormsComponentsPlaceholder::make("status_icon")
+                        Placeholder::make('status_icon')
                             ->label(trans("server-expiry::strings.status_label"))
                             ->content(fn (?Server $record): string => $record !== null ? match (Expiry::statusColor($record)) {
                                 "gray" => "<svg class=\"w-5 h-5 text-gray-400\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V9a2 2 0 002-2H5a2 2 0 002 2v10a2 2 0 002 2z\/></svg>",
@@ -59,7 +59,7 @@ class ExpirySettingsPage extends ServerFormPage
                                 "warning" => "<svg class=\"w-5 h-5 text-yellow-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z\/></svg>",
                             } : "<svg class=\"w-5 h-5 text-gray-400\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\/></svg>")
                             ->columnSpan([1]),
-                        FormsComponentsPlaceholder::make("status_text")
+                        Placeholder::make('status_text')
                             ->label("")
                             ->content(fn (?Server $record): string => $record !== null ? Expiry::statusText($record) : "")
                             ->columnSpan([2]),
@@ -177,15 +177,7 @@ class ExpirySettingsPage extends ServerFormPage
                     'If the server is currently suspended due to expiration, ' .
                     'it will be automatically renewed.'
                 )
-                ->visible(fn (?Server $record): bool =>
-                    // Show renewal button if:
-                    // 1. Server is not suspended, OR
-                    // 2. Server is suspended due to expiration (can be auto-renewed), OR
-                    // 3. Owner notifications are enabled (as a fallback)
-                    $record !== null && (!$record->isSuspended() ||
-                    $record->suspension_reason === 'expiration' ||
-                    app(ExpirationService::class)->isNotifyOwnerOnSuspendEnabled())
-                )
+                ->visible(fn (?Server $record): bool => $this->canRenewOrSetExpiration($record))
                 ->tooltip(trans('server-expiry::strings.action_renew_tooltip')),
             Action::make('set_expiration')
                 ->label(trans('server-expiry::strings.action_set_expiration'))
@@ -226,16 +218,23 @@ class ExpirySettingsPage extends ServerFormPage
                 ->modalWidth('md')
                 ->modalSubmitActionLabel(trans('server-expiry::strings.action_set_expiration'))
                 ->modalCancelActionLabel('Cancel')
-                ->visible(fn (?Server $record): bool =>
-                    // Show set expiration button if:
-                    // 1. Server is not suspended, OR
-                    $record !== null && (!$record->isSuspended() ||
-                    $record->suspension_reason === 'expiration' ||
-                    app(ExpirationService::class)->isNotifyOwnerOnSuspendEnabled()
-                )
-                )
+                ->visible(fn (?Server $record): bool => $this->canRenewOrSetExpiration($record))
                 ->tooltip(trans('server-expiry::strings.action_set_expiration_tooltip'))
         ];
+    }
+
+    /**
+     * Determine if the user can renew or set expiration for the given server.
+     *
+     * @param  Server|null  $record
+     * @return bool
+     */
+    private function canRenewOrSetExpiration(?Server $record): bool
+    {
+        return $record !== null && (!$record->isSuspended() ||
+            $record->suspension_reason === 'expiration' ||
+            app(ExpirationService::class)->isNotifyOwnerOnSuspendEnabled()
+        );
     }
 
     protected function getServerUrl(int $serverId): string
