@@ -134,7 +134,7 @@ class ExpirySettingsPage extends ServerFormPage
                 ])
                 ->action(function (array $data, Server $record) {
                     // Authorization check: ensure user can renew this server
-                    if (! Gate::authorize('renew', $record)) {
+                    if (! Gate::authorize('update', $record)) {
                         Notification::make()
                             ->danger()
                             ->body('You are not authorized to renew this server.')
@@ -195,7 +195,7 @@ class ExpirySettingsPage extends ServerFormPage
                 ])
                 ->action(function (array $data, Server $record) {
                     // Authorization check: ensure user can set expiration for this server
-                    if (! Gate::authorize('renew', $record)) {
+                    if (! Gate::authorize('update', $record)) {
                         Notification::make()
                             ->danger()
                             ->body('You are not authorized to modify expiration for this server.')

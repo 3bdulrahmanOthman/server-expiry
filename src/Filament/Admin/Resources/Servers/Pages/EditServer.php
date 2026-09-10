@@ -96,7 +96,7 @@ class EditServer extends PelicanEditServer
                 ->icon('heroicon-o-arrow-path')
                 ->color('success')
                 ->action(function (Server $record) {
-                    if (! Gate::authorize('renew', $record)) {
+                    if (! Gate::authorize('update', $record)) {
                         Notification::make()
                             ->danger()
                             ->body('You are not authorized to renew this server.')
@@ -132,7 +132,7 @@ class EditServer extends PelicanEditServer
                 ->icon('heroicon-o-trash')
                 ->color('danger')
                 ->action(function (Server $record) {
-                    if (! Gate::authorize('delete', $record)) {
+                    if (! Gate::authorize('update', $record)) {
                         Notification::make()
                             ->danger()
                             ->body('You are not authorized to clear expiration for this server.')

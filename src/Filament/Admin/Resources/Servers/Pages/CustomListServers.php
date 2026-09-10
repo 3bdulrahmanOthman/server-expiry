@@ -42,6 +42,7 @@ class CustomListServers extends ListServers
             Action::make('extend')
                 ->label(trans('server-expiry::strings.action_extend'))
                 ->color('success')
+                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
                 ->action(fn (Server $record) => app(ExpirationService::class)->extendExpiration(
                     $record->getKey(),
                     new DateInterval('P30D')
@@ -55,6 +56,7 @@ class CustomListServers extends ListServers
             Action::make('renew')
                 ->label(trans('server-expiry::strings.action_renew'))
                 ->color('warning')
+                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
                 ->action(function (Server $record) {
                     $expirationService = app(ExpirationService::class);
                     $currentExpiration = $expirationService->getExpiration($record->getKey());
@@ -74,6 +76,7 @@ class CustomListServers extends ListServers
             Action::make('clear')
                 ->label(trans('server-expiry::strings.action_clear'))
                 ->color('danger')
+                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
                 ->action(fn (Server $record) => app(ExpirationService::class)->clearExpiration($record->getKey()))
                 ->requiresConfirmation()
                 ->icon('heroicon-o-trash')
@@ -91,6 +94,7 @@ class CustomListServers extends ListServers
                         ->native(false)
                         ->seconds(false),
                 ])
+                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
                 ->action(function (array $data, Server $record) {
                     app(ExpirationService::class)->setExpiration(
                         $record->getKey(),
@@ -113,6 +117,7 @@ class CustomListServers extends ListServers
             Action::make('check_status')
                 ->label(trans('server-expiry::strings.action_check_status'))
                 ->color('info')
+                ->authorize(fn (Server $record) => Gate::authorize('view', $record))
                 ->action(function (Server $record) {
                     $expirationService = app(ExpirationService::class);
                     $statusText = Expiry::statusText($record);
@@ -142,6 +147,19 @@ class CustomListServers extends ListServers
                 ->color('warning')
                 ->action(function (Collection $records) {
                     $expirationService = app(ExpirationService::class);
+                    $unauthorized = false;
+                    foreach ($records as $record) {
+                        if (! Gate::authorize('update', $record)) {
+                            $unauthorized = true;
+                        }
+                    }
+                    if ($unauthorized) {
+                        Notification::make()
+                            ->warning()
+                            ->body('You are not authorized to renew one or more servers.')
+                            ->send();
+                        return;
+                    }
                     foreach ($records as $record) {
                         $currentExpiration = $expirationService->getExpiration($record->getKey());
                         $now = new DateTimeImmutable('now');
@@ -165,6 +183,19 @@ class CustomListServers extends ListServers
                 ->color('danger')
                 ->action(function (Collection $records) {
                     $expirationService = app(ExpirationService::class);
+                    $unauthorized = false;
+                    foreach ($records as $record) {
+                        if (! Gate::authorize('update', $record)) {
+                            $unauthorized = true;
+                        }
+                    }
+                    if ($unauthorized) {
+                        Notification::make()
+                            ->warning()
+                            ->body('You are not authorized to clear expiration for one or more servers.')
+                            ->send();
+                        return;
+                    }
                     foreach ($records as $record) {
                         $expirationService->clearExpiration($record->getKey());
                     }
