@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the database schema changes introduced in Server Expiry v2.0.0. The changes are designed to be backward compatible with v1.2.0 while providing the foundation for new v2 features.
+This document describes the database schema changes introduced in Server Expiry v2.0.0. The changes are designed to be backward compatible with v1.2.0 while providing the foundation for the v2 features. The migration path (fresh install and v1.2.0 upgrade) was executed and runtime-verified against MySQL/MariaDB during the v2.0.0 release validation.
 
 ## Migration Strategy
 

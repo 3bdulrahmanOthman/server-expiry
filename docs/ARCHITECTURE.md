@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the v2 architecture for the Server Expiry & Auto-Suspend plugin, following clean architecture principles with clear separation of concerns.
+This document describes the architecture of the released **v2.0.0** of the Server Expiry & Auto-Suspend plugin, following clean architecture principles with clear separation of concerns.
 
 ## Architectural Layers
 
@@ -77,7 +77,7 @@ Infrastructure Layer (Framework Integrations)
 3. **Testability**: Domain layer can be tested in isolation without frameworks.
 4. **Framework Independence**: Business logic is decoupled from Laravel/Filament/Pelican.
 5. **Extensibility**: New features can be added by extending layers without modifying existing code.
-6. **Backward Compatibility**: Existing v1.1.0 functionality is preserved through careful migration.
+6. **Backward Compatibility**: Existing v1.2.0 functionality is preserved through careful migration.
 
 ## Layer Responsibilities
 
@@ -108,7 +108,7 @@ Infrastructure Layer (Framework Integrations)
 - **Infrastructure ↔ Presentation**: Through framework-specific adapters
 - **Presentation ↔ User**: Through HTTP, CLI, or UI frameworks
 
-## Migration Strategy from v1.1.0
+## Migration Strategy from v1.2.0 (implemented and verified in v2.0.0)
 
 1. **Phase 0**: Repository Audit (Complete)
 2. **Phase 1**: Architecture Setup - Create layer structure and domain foundation
