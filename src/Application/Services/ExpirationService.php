@@ -124,6 +124,8 @@ final class ExpirationService implements ExpirationServiceInterface
 
         // Dispatch domain event
         Event::dispatch(new ExpirationSet($serverId, $newExpiration, new DateTimeImmutable('now')));
+
+        return $newExpiration;
     }
 
     /**
@@ -150,6 +152,14 @@ final class ExpirationService implements ExpirationServiceInterface
     }
 
     /**
+     * Get the configured grace period.
+     */
+    public function getGracePeriod(): GracePeriod
+    {
+        return $this->repository->getGracePeriod();
+    }
+
+    /**
      * Get the current expiration status of a server.
      */
     public function getStatus(string $serverId): ExpirationStatus
@@ -170,7 +180,8 @@ final class ExpirationService implements ExpirationServiceInterface
         // Use the maximum warning threshold for status calculation
         // The ExpirationDate::getStatus method expects a single warningDays value
         // We'll use the largest threshold to determine if we're in any warning period
-        $maxWarningDays = max($warningDaysArray);
+        // With no thresholds, 0 disables the warning period entirely (safe semantics)
+        $maxWarningDays = $warningDaysArray === [] ? 0 : max($warningDaysArray);
 
         return $expirationDate->getStatus(
             $now,

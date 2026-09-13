@@ -58,8 +58,12 @@ class WebhookDelivery extends Model
 
     /**
      * Get the webhook endpoint that owns this delivery.
+     *
+     * Named `endpoint` (not `webhookEndpoint`) so Laravel does not treat the
+     * studly method name as an Attribute accessor for `webhook_endpoint`,
+     * which would break isRelation() and Filament v5 relationship filters.
      */
-    public function webhookEndpoint(): BelongsTo
+    public function endpoint(): BelongsTo
     {
         return $this->belongsTo(WebhookEndpoint::class, 'webhook_endpoint_id');
     }

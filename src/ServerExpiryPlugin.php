@@ -195,13 +195,14 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
             'edit' => CustomEditServer::route('/{record}/edit'),
         ]);
 
-        // Register webhook endpoint and delivery resources
-        if ($panel->getId() === 'admin') {
-            \Filament\Resources\Resource::register([
-                WebhookEndpointResource::class,
-                WebhookDeliveryResource::class,
-            ]);
-        }
+        // Register webhook endpoint and delivery resources with the admin panel.
+        // (Filament has no static Resource::register(); resources are attached
+        // to the panel via Panel::resources() inside the plugin's register().
+        // This code only runs for the admin panel — other panels returned above.)
+        $panel->resources([
+            WebhookEndpointResource::class,
+            WebhookDeliveryResource::class,
+        ]);
     }
 
     public function boot(Panel $panel): void

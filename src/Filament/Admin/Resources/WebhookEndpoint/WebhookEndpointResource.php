@@ -4,31 +4,30 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookEndpoint;
 
-use App\Filament\Admin\Resources\WebhookEndpoint\WebhookEndpointResource as BaseResource;
+use BackedEnum;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
+use Filament\Actions;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use UnitEnum;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookEndpoint;
-use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookDelivery;
-use SquadronStrike\ServerExpiry\Support\Expiry;
 
 class WebhookEndpointResource extends Resource
 {
-    protected static string $model = WebhookEndpoint::class;
+    protected static ?string $model = WebhookEndpoint::class;
 
-    protected static string $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Server Expiry';
+    protected static string|UnitEnum|null $navigationGroup = 'Server Expiry';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Endpoint Information')
+                Section::make('Endpoint Information')
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->label('Name')
@@ -41,38 +40,35 @@ class WebhookEndpointResource extends Resource
                             ->maxLength(255)
                             ->rule('regex:/^(https?:\/\/)?(([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}|(\d{1,3}\.){3}\d{1,3})(:\d+)?(\/.*)?$/i')
                             ->rule(function ($attribute, $value, $fail) {
-                                // SSRF protection: block private IP addresses and localhost
+                                // SSRF protection: block private, reserved and
+                                // link-local addresses (covers IPv4 and IPv6,
+                                // including loopback ::1 and 169.254.0.0/16).
+                                if (! is_string($value) || $value === '') {
+                                    return;
+                                }
                                 $ip = null;
-                                if (preg_match('/^https?:\/\/([^\/]+)/i', $value, $matches)) {
+                                if (preg_match('/^https?:\/\/([^\/@]+)/i', $value, $matches)) {
                                     $host = $matches[1];
 
-                                    // Extract port if present
-                                    if (strpos($host, ':') !== false) {
-                                        list($host, $port) = explode(':', $host);
+                                    // Strip port if present (but not from IPv6 literals)
+                                    if (strpos($host, ':') !== false && strpos($host, '[') === false) {
+                                        $host = explode(':', $host)[0];
                                     }
+                                    $host = trim($host, '[]');
 
-                                    // Check if it's an IP address
                                     if (filter_var($host, FILTER_VALIDATE_IP)) {
                                         $ip = $host;
-                                    } else {
-                                        // Resolve hostname to IP
-                                        $resolved = @gethostbyname(@gethostbyname($host));
+                                    } elseif ($host !== '' && filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
+                                        $resolved = @gethostbyname($host);
                                         if ($resolved && $resolved !== $host) {
                                             $ip = $resolved;
                                         }
                                     }
                                 }
 
-                                if ($ip) {
-                                    // Block private IP ranges and localhost
-                                    if (preg_match('/^127\./', $ip) ||
-                                        preg_match('/^10\./', $ip) ||
-                                        preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $ip) ||
-                                        preg_match('/^192\.168\./', $ip) ||
-                                        $ip === '0.0.0.0' ||
-                                        $ip === 'localhost') {
-                                        $fail('The URL cannot point to a private or internal network address.');
-                                    }
+                                if ($ip !== false && $ip !== null &&
+                                    ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                                    $fail('The URL cannot point to a private or internal network address.');
                                 }
                             }),
                         Forms\Components\Toggle::make('active')
@@ -80,21 +76,22 @@ class WebhookEndpointResource extends Resource
                             ->default(true),
                     ])
                     ->columns(2),
-                Forms\Components\Section::make('Security')
+                Section::make('Security')
                     ->schema([
                         Forms\Components\TextInput::make('secret_key')
                             ->label('Secret Key')
                             ->password()
-                            ->placeholder('Leave empty to generate a new secret')
+                            ->placeholder('Leave empty to keep the current secret')
                             ->dehydrated(fn ($state) => filled($state))
-                            ->hydrate(fn ($state) => filled($state) ? $state : null)
-                            ->helperText('If left empty, a new secret will be generated upon saving.'),
+                            ->helperText('If left empty, the existing secret is kept unchanged.'),
                         Forms\Components\Placeholder::make('secret_key_preview')
                             ->label('Secret Key (Preview)')
-                            ->content(fn (WebhookEndpoint $record): ?string => $record->secret_key ? str_repeat('*', min(8, strlen($record->secret_key))) : null),
+                            ->content(fn (?WebhookEndpoint $record): ?string => filled($record?->secret_key)
+                                ? str_repeat('*', min(8, strlen($record->secret_key)))
+                                : null),
                     ])
                     ->columns(2),
-                Forms\Components\Section::make('Event Subscriptions')
+                Section::make('Event Subscriptions')
                     ->schema([
                         Forms\Components\CheckboxList::make('events')
                             ->label('Subscribed Events')
@@ -161,13 +158,13 @@ class WebhookEndpointResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Actions\ViewAction::make(),
+                Actions\EditAction::make(),
+                Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }

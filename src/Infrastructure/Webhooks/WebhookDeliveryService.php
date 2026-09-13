@@ -74,9 +74,9 @@ class WebhookDeliveryService
     public function attemptDelivery(WebhookDelivery $delivery): void
     {
         // Load the endpoint relationship
-        $delivery->load('webhookEndpoint');
+        $delivery->load('endpoint');
 
-        $endpoint = $delivery->webhookEndpoint;
+        $endpoint = $delivery->endpoint;
 
         // Double-check that endpoint is still active and subscribed
         if (! $endpoint->isActive() || ! $endpoint->isSubscribedToEvent($delivery->event_type)) {
@@ -182,7 +182,7 @@ class WebhookDeliveryService
             ]);
 
             // Update endpoint failure tracking
-            $endpoint = $delivery->webhookEndpoint;
+            $endpoint = $delivery->endpoint;
             $endpoint->increment('failure_count');
             $endpoint->update(['last_failed_at' => now()]);
         }

@@ -15,19 +15,17 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
-use SquadronStrike\ServerExpiry\Console\Commands\SendExpiryWarningsCommand;
-use SquadronStrike\ServerExpiry\Console\Commands\SuspendExpiredServersCommand;
+use SquadronStrike\ServerExpiry\Console\Commands\ProcessServerExpirationCommand;
 use SquadronStrike\ServerExpiry\Support\Expiry;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 
 /**
  * Auto-discovered service provider (Pelican scans src/Providers/).
  *
- * The plugin's console commands are registered automatically by Pelican, and
- * are wired into Laravel's scheduler here so the panel's existing cron
- * (`php artisan schedule:run`) drives both lifecycle stages:
- *   - pre-expiration: SendExpiryWarningsCommand sends 7/3/1-day warnings
- *   - post-expiration: SuspendExpiredServersCommand suspends via Wings API
+ * The plugin's console commands are registered automatically by Pelican. The
+ * consolidated lifecycle command is wired into Laravel's scheduler here so
+ * the panel's existing cron (`php artisan schedule:run`) drives both stages
+ * (pre-expiration warnings and post-grace suspension) in a single run.
  */
 class ServerExpiryServiceProvider extends ServiceProvider
 {

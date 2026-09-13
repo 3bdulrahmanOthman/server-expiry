@@ -18,8 +18,12 @@ class ExpirationApiRouteServiceProvider extends RouteServiceProvider
     public function boot(): void
     {
         $this->routes(function () {
-            // Application API routes (admin/API)
-            Route::middleware(['api', 'application-api', 'auth:application'])
+            // Application API routes (admin/API). Mirrors the core
+            // RouteServiceProvider stack: 'application-api' includes
+            // SubstituteBindings + AuthenticateApplicationUser (root-admin
+            // check); authentication itself comes from the 'api' group's
+            // auth:sanctum. There is no 'application' auth guard.
+            Route::middleware(['api', 'application-api', 'throttle:api.application'])
                 ->prefix('/api/application/servers/{server}')
                 ->scopeBindings()
                 ->group(function () {

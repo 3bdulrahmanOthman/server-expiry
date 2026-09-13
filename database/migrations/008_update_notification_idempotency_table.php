@@ -26,6 +26,13 @@ return new class extends Migration
             ->whereNull('identifier')
             ->update(['identifier' => 'expiration']);
 
+        // Any other rows still carrying a null identifier (legacy one-time
+        // events) get an empty-string sentinel so the NOT NULL conversion
+        // below can never fail on pre-existing data.
+        DB::table('notification_idempotency')
+            ->whereNull('identifier')
+            ->update(['identifier' => '']);
+
         // Now make identifier non-null
         Schema::table('notification_idempotency', function (Blueprint $table) {
             $table->string('identifier')->change();

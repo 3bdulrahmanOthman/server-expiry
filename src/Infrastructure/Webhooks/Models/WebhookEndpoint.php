@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookDelivery;
 
@@ -76,17 +75,12 @@ class WebhookEndpoint extends Model
      */
     public function isSubscribedToEvent(string $eventType): bool
     {
+        // R8 made the events column nullable; treat null as "no subscriptions".
         $events = $this->events ?? [];
         return in_array($eventType, $events, true);
     }
 
-    /**
-     * Format the secret key for display (masked for security).
-     */
-    protected function secretKey(): Attribute
-    {
-        return Attribute::make(
-            get: fn ($value) => $value ? str_repeat('*', min(8, strlen($value))) : null,
-        );
-    }
+    // Note: no masking accessor on secret_key. An accessor that returned
+    // '********' would also replace the stored secret during HMAC signing
+    // and any model round-trip; masking belongs to the UI layer only.
 }

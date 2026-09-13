@@ -46,9 +46,13 @@ final class ExpirationDate
         }
 
         try {
-            $dateTime = new DateTimeImmutable($dateString);
+            // Normalize to the application's default timezone so that inbound
+            // strings carrying an explicit UTC offset cannot shift the wall
+            // time when the repository formats it for persistence.
+            $dateTime = (new DateTimeImmutable($dateString))
+                ->setTimezone(new \DateTimeZone(date_default_timezone_get()));
             return new self($dateTime);
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Exception $exception) {
             throw new InvalidArgumentException(
                 sprintf('Invalid date/time string: %s', $dateString),
                 0,

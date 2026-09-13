@@ -39,30 +39,39 @@ Plugin settings in the admin panel, under Admin Area → Plugins → Settings:
   the generic "server conflict" banner is replaced by a dedicated expiration
   banner with the expiry date and a "contact your service provider to renew"
   note (clients cannot change the expiration date themselves).
-- **Auto-suspend command** — `pelican:suspend-expired-servers` runs every minute
-  via Laravel's scheduler and suspends expired servers through Pelican's native
-  `SuspensionService` (marks `ServerState::Suspended` **and** tells Wings to
-  re-sync the server state via the daemon API).
-- **Expiry warnings** — `pelican:send-expiry-warnings` notifies owners by mail +
-  in-panel notification at 7, 3 and 1 day(s) before expiration (configurable,
-  idempotent per threshold).
+- **Lifecycle command** — `pelican:process-server-expiration` runs every minute
+  via Laravel's scheduler; it sends idempotent warning notifications and
+  suspends expired servers (after the grace period) through Pelican's native
+  `SuspensionService` (marks `ServerState::Suspended`, stamps
+  `suspension_reason = 'expiration'`, and tells Wings to re-sync the server
+  state via the daemon API).
 - **Owner notifications** — mail + in-panel database notification to the owner on
   warning **and** on suspension.
 - **Grace period** — extra hours granted after expiration before suspension.
 - **Settings page** — a Settings action on the plugin row in Admin Area → Plugins
   (`.env`-driven): auto-suspend toggle, grace period, warning days, owner notification.
+- **Webhooks** — register HTTP endpoints (Admin Area → "Server Expiry" → Webhook
+  Endpoints) that receive signed (HMAC-SHA256) JSON notifications for expiration
+  lifecycle events, with per-endpoint event subscription and delivery tracking
+  including manual retry from the admin UI.
+- **Application API** — five Application API endpoints under
+  `/api/application/servers/{server}` (see [API](#api) below) guarded by the
+  panel's standard Application-API key ACL (`READ` for show, `WRITE` for
+  mutations) and root-admin authentication.
 
 ## Lifecycle
 
 1. **Pre-expiration (warning stage)** — when a server enters a warning window
    (default 7, 3 and 1 day(s) before `expires_at`), the owner receives an email
    and an in-panel notification. Each threshold is sent only once per server.
-2. **Expiration (suspension stage)** — once `expires_at` (minus optional grace
-   hours) is reached, `SuspendExpiredServersCommand` calls Pelican's
-   `SuspensionService`, which marks the server as suspended in the database and
-   triggers a daemon sync so Wings takes the server offline. On the client
-   panel, the server's "Expiration" page shows a dedicated banner instead of
-   the generic conflict banner.
+2. **Expiration (suspension stage)** — once `expires_at` plus the configured
+   grace hours has passed, the consolidated scheduler command
+   `pelican:process-server-expiration` calls Pelican's `SuspensionService`,
+   which marks the server as suspended in the database and triggers a daemon
+   sync so Wings takes the server offline. Expiration-based suspensions are
+   stamped with `suspension_reason = 'expiration'`; manually suspended servers
+   are never auto-revived. On the client panel, the server's "Expiration" page
+   shows a dedicated banner instead of the generic conflict banner.
 3. **Post-suspension notification** — the owner receives a final email and
    in-panel notification explaining the server was suspended due to expiration.
 4. **Renewal** — the provider sets a new expiration date (or clears it) via
@@ -72,10 +81,12 @@ Plugin settings in the admin panel, under Admin Area → Plugins → Settings:
 
 ## Requirements
 
-- [Pelican Panel](https://pelican.dev/) (current release; `canary` works too)
-- PHP 8.2+
+- [Pelican Panel](https://pelican.dev/) — v2.0.0 is developed and verified
+  against **Pelican v1.0.0-beta38** (Filament v5). Behavior on other panel
+  versions is untested.
+- PHP 8.2+ and MySQL/MariaDB
 - A running queue worker (notifications are queued)
-- A cron entry for the suspend task (see below)
+- A cron entry for the scheduler task (see below)
 
 ## Installation
 
@@ -91,18 +102,19 @@ Plugin settings in the admin panel, under Admin Area → Plugins → Settings:
 
 ## Cron setup
 
-The plugin registers `pelican:suspend-expired-servers` in Laravel's scheduler, so
+The plugin registers `pelican:process-server-expiration` (warnings +
+expiration-based suspension in one idempotent run) in Laravel's scheduler, so
 you only need the standard panel cron running. Verify it exists with `crontab -e`:
 
 ```cron
 * * * * * php /var/www/pelican/artisan schedule:run >> /dev/null 2>&1
 ```
 
-The check runs every minute (`withoutOverlapping`). Optional per-run grace
-override (manual run only):
+The check runs every minute (`withoutOverlapping`), so re-runs are safe.
+Optional per-run grace override (manual run only):
 
 ```bash
-php /var/www/pelican/artisan pelican:suspend-expired-servers --grace-hours=24
+php /var/www/pelican/artisan pelican:process-server-expiration --grace-hours=24
 ```
 
 ## Configuration
@@ -125,6 +137,67 @@ Full defaults live in `config/server-expiry.php`:
 | `grace_period_hours` | `SERVER_EXPIRY_GRACE_HOURS` | `0` | Grace period in hours before suspension |
 | `warning_days_notice` | `SERVER_EXPIRY_WARNING_DAYS` | `7,3,1` | Warning thresholds in days before expiry |
 | `notify_owner_on_suspend` | `SERVER_EXPIRY_NOTIFY_ON_SUSPEND` | `true` | Send mail + database notification to the owner |
+
+## API
+
+The plugin exposes five Application API endpoints (root-admin API keys, panel
+ACL on the `server` resource):
+
+| Method | Path | ACL | Description |
+| --- | --- | --- | --- |
+| GET | `/api/application/servers/{server}/expiration` | READ | Status, expiry date, expired/grace flags, remaining seconds |
+| PUT | `/api/application/servers/{server}/expiration` | WRITE | Set `expires_at` or `{"permanent": true}` |
+| POST | `/api/application/servers/{server}/expiration/extend` | WRITE | Extend by `{"hours": N}` (422 if the server is permanent) |
+| POST | `/api/application/servers/{server}/renew` | WRITE | Renew to a new `expires_at` (400 if renewing a dated server to permanent) |
+| DELETE | `/api/application/servers/{server}/expiration` | WRITE | Clear the expiration (make permanent) |
+
+`status` values: `0` permanent, `1` active, `2` warning, `3` expired,
+`4` grace, `5` suspended (domain enum; see `docs/ARCHITECTURE.md`).
+
+## Webhooks
+
+Webhook endpoints are managed in Admin Area → "Server Expiry" (Webhook
+Endpoints / Deliveries). Each endpoint subscribes to a subset of:
+
+`server.expiry.created`, `server.expiry.updated`, `server.expiry.warning`,
+`server.expiry.expired`, `server.expiry.suspended`, `server.expiry.renewed`,
+`server.expiry.cleared`
+
+Deliveries POST JSON with `X-Signature` = HMAC-SHA256 of
+`<raw-body><X-Timestamp>` keyed by the endpoint secret, plus `X-Timestamp`,
+`X-Webhook-ID` and `Content-Type: application/json`. Failed deliveries are
+recorded with their HTTP status and can be retried from the Deliveries table
+(automatic scheduled retries are a known gap — see Limitations). Endpoint
+URLs may not point at private, reserved or link-local addresses (SSRF
+protection, validated at save time).
+
+## Upgrade path (v1.2.0 → v2.0.0)
+
+- Install the new release over the existing `plugins/server-expiry/` folder and
+  run the panel's plugin update/import; migrations `003`–`008` run
+  automatically.
+- Migrations `001`/`002` keep their v1.2.0 names and will **not** re-run.
+- All existing `expires_at` / `expiry_warning_day` values and notification
+  idempotency rows are preserved; previously-sent warnings are marked
+  `sent` so nothing is re-sent after upgrading.
+- New columns/tables: `servers.suspension_reason`, `expiration_lifecycle_events`,
+  `webhook_endpoints`, `webhook_deliveries`, and the extended
+  `notification_idempotency` columns (`status`, `attempts`, `last_attempt_at`).
+- Rollback: uninstalling removes the plugin tables and columns added by the
+  migrations' `down()` methods.
+
+## Known limitations
+
+- Webhook **manual retry** works from the admin UI; the scheduled automatic
+  retry pass (`processPendingDeliveries`) exists but is not yet wired to the
+  scheduler.
+- Webhook destination URLs are validated against private/reserved ranges at
+  save time; DNS-rebinding between validation and delivery is not mitigated.
+- The Application API is root-admin-only (panel convention); there are no
+  subuser-level expiration permissions yet.
+- Expiration-related Filament/API/webhook behavior is unit-tested at the
+  domain level only; full Pelican-runtime integration testing is planned
+  (see docs/DATABASE_CHANGES.md § R12 follow-ups).
 
 ## Development
 

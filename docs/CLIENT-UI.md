@@ -10,7 +10,7 @@ This document describes the client-facing expiration UI for the Server Expiry & 
 2. **Authorization Enforcement**: Administrative actions require proper authorization
 3. **Safety First**: Renewal actions respect the manual vs expiration suspension distinction
 4. **Clean Presentation**: Information is presented in a clear, visually intuitive format
-5. **Backward Compatibility**: Existing v1.1.0 client functionality is preserved
+5. **Backward Compatibility**: Existing v1.2.0 client functionality is preserved
 
 ## Components
 
@@ -102,7 +102,7 @@ The implementation maintains the critical distinction between manual and expirat
 
 ## Backward Compatibility
 
-### Preserved v1.1.0 Functionality
+### Preserved v1.2.0 Functionality
 - The expiration information display maintains all data previously shown
 - URL route remains unchanged (`/server/{id}/expiry-settings`)
 - Navigation label and icon are preserved

@@ -21,12 +21,15 @@ final class Expiry
 
     public static function isExpirySuspended(Server $server): bool
     {
-        return $server->isSuspended() && self::isExpired($server);
+        // Only treat a suspension as expiration-based when the model-event hook
+        // stamped it as such; manually suspended servers must never be conflated.
+        return $server->isSuspended()
+            && ($server->suspension_reason ?? null) === 'expiration';
     }
 
     public static function warningDays(): int
     {
-        $days = config('server-expiry.warning_days_notice', [7]);
+        $days = config('server-expiry.warning_days_notice', [7, 3, 1]);
 
         if (! is_array($days) || count($days) === 0) {
             return 7;
@@ -100,12 +103,13 @@ final class Expiry
             return trans('server-expiry::strings.remaining_permanent');
         }
 
+        // getRemainingTime() computes expiry->diff(now), so invert === 1 means
+        // "now" is earlier than expiry, i.e. the server is still active.
         if ($remaining->invert === 1) {
-            // Negative interval means expired
-            return trans('server-expiry::strings.remaining_expired', ['time' => $remaining->format('%d days, %h hours, %i minutes, %s seconds')]);
+            return trans('server-expiry::strings.remaining_in', ['time' => $remaining->format('%d days, %h hours, %i minutes, %s seconds')]);
         }
 
-        return trans('server-expiry::strings.remaining_in', ['time' => $remaining->format('%d days, %h hours, %i minutes, %s seconds')]);
+        return trans('server-expiry::strings.remaining_expired', ['time' => $remaining->format('%d days, %h hours, %i minutes, %s seconds')]);
     }
 
     public static function warningScheduleText(): string

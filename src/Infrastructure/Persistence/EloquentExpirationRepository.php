@@ -109,6 +109,9 @@ class EloquentExpirationRepository implements ExpirationRepository
     public function getWarningThresholds(): array
     {
         $days = config('server-expiry.warning_days_notice', [7, 3, 1]);
+        // Drop zero/negative entries so a misconfigured value (e.g. empty env
+        // string collapsing to [0]) cannot throw in WarningThreshold::fromDays
+        $days = array_values(array_filter($days, fn (int $day) => $day > 0));
         $thresholds = array_map(fn(int $day) => WarningThreshold::fromDays($day), $days);
         sort($thresholds); // Sort ascending for consistent processing
         return $thresholds;

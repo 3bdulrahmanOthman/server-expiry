@@ -4,35 +4,35 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookDelivery;
 
-use App\Filament\Admin\Resources\WebhookDelivery\WebhookDeliveryResource as BaseResource;
+use BackedEnum;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Actions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Notification;
+use UnitEnum;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookDelivery;
-use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookEndpoint;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\WebhookDeliveryService;
-use SquadronStrike\ServerExpiry\Support\Expiry;
 
 class WebhookDeliveryResource extends Resource
 {
-    protected static string $model = WebhookDelivery::class;
+    protected static ?string $model = WebhookDelivery::class;
 
-    protected static string $navigationIcon = 'heroicon-o-document-arrow-down';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-arrow-down';
 
-    protected static ?string $navigationGroup = 'Server Expiry';
+    protected static string|UnitEnum|null $navigationGroup = 'Server Expiry';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Delivery Information')
+                Section::make('Delivery Information')
                     ->schema([
-                        Forms\Components\TextInput::make('webhook_endpoint.name')
+                        Forms\Components\TextInput::make('endpoint.name')
                             ->label('Webhook Endpoint')
                             ->readOnly()
                             ->disabled(),
@@ -84,10 +84,11 @@ class WebhookDeliveryResource extends Resource
                             ->disabled(),
                     ])
                     ->columns(2),
-                Forms\Components\Section::make('Payload')
+                Section::make('Payload')
                     ->schema([
                         Forms\Components\Textarea::make('payload')
                             ->label('Payload')
+                            ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : $state)
                             ->readOnly()
                             ->disabled()
                             ->columnSpanFull()
@@ -101,7 +102,7 @@ class WebhookDeliveryResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('webhook_endpoint.name')
+                Tables\Columns\TextColumn::make('endpoint.name')
                     ->label('Endpoint')
                     ->searchable()
                     ->sortable(),
@@ -113,13 +114,15 @@ class WebhookDeliveryResource extends Resource
                     ->label('Server ID')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\IconColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Status')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-x-mark')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'success' => 'success',
+                        'failed' => 'danger',
+                        default => 'warning',
+                    })
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('attempt')
                     ->label('Attempt')
                     ->sortable(),
@@ -151,23 +154,23 @@ class WebhookDeliveryResource extends Resource
                         'success' => 'Success',
                         'failed' => 'Failed',
                     ]),
-                Tables\Filters\SelectFilter::make('webhook_endpoint.name')
+                Tables\Filters\SelectFilter::make('endpoint.name')
                     ->label('Endpoint')
-                    ->relationship('webhook_endpoint', 'name'),
-                Tables\Filters\TernaryFilter::make('status')
+                    ->relationship('endpoint', 'name'),
+                Tables\Filters\TernaryFilter::make('retryable')
                     ->label('Retryable')
-                    ->trueIcon('heroicon-o-arrow-path')
-                    ->falseIcon('heroicon-o-lock-closed')
-                    ->trueQuery(fn (Builder $query) => $query->where('status', 'failed')
-                        ->whereRaw('attempt < max_attempts'))
-                    ->falseQuery(fn (Builder $query) => $query->where(function (Builder $query) {
-                        $query->where('status', '!=', 'failed')
-                            ->orWhereRaw('attempt >= max_attempts');
-                    })),
+                    ->queries(
+                        fn (Builder $query) => $query->where('status', 'failed')
+                            ->whereRaw('attempt < max_attempts'),
+                        fn (Builder $query) => $query->where(function (Builder $query) {
+                            $query->where('status', '!=', 'failed')
+                                ->orWhereRaw('attempt >= max_attempts');
+                        }),
+                    ),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\Action::make('retry')
+                Actions\ViewAction::make(),
+                Actions\Action::make('retry')
                     ->label('Retry')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
@@ -200,8 +203,8 @@ class WebhookDeliveryResource extends Resource
                     ->visible(fn (WebhookDelivery $record) => $record->canRetry()),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -226,6 +229,6 @@ class WebhookDeliveryResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('webhookEndpoint');
+            ->with('endpoint');
     }
 }

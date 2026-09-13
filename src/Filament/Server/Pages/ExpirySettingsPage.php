@@ -17,7 +17,6 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Gate;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 use SquadronStrike\ServerExpiry\Support\Expiry;
@@ -133,8 +132,10 @@ class ExpirySettingsPage extends ServerFormPage
                     // This action will use a modal form for renewal options
                 ])
                 ->action(function (array $data, Server $record) {
-                    // Authorization check: ensure user can renew this server
-                    if (! Gate::authorize('update', $record)) {
+                    // Authorization check: only the server owner may renew.
+                    // The generic 'update' server policy is a root-admin
+                    // ability in Pelican, so it must not be used here.
+                    if ($record->owner_id !== auth()->id()) {
                         Notification::make()
                             ->danger()
                             ->body('You are not authorized to renew this server.')
@@ -194,8 +195,9 @@ class ExpirySettingsPage extends ServerFormPage
                         ->rule('after_or_equal:today')
                 ])
                 ->action(function (array $data, Server $record) {
-                    // Authorization check: ensure user can set expiration for this server
-                    if (! Gate::authorize('update', $record)) {
+                    // Authorization check: only the server owner may change the
+                    // expiration date ('update' is a root-admin policy ability).
+                    if ($record->owner_id !== auth()->id()) {
                         Notification::make()
                             ->danger()
                             ->body('You are not authorized to modify expiration for this server.')
@@ -225,16 +227,20 @@ class ExpirySettingsPage extends ServerFormPage
 
     /**
      * Determine if the user can renew or set expiration for the given server.
+     * Owner-only: the page is documented as owner-only and no expiration
+     * subuser permission exists. Renewal stays available while the server is
+     * expiration-suspended (renewing revives it), but not for manual
+     * suspensions.
      *
      * @param  Server|null  $record
      * @return bool
      */
     private function canRenewOrSetExpiration(?Server $record): bool
     {
-        return $record !== null && (!$record->isSuspended() ||
-            $record->suspension_reason === 'expiration' ||
-            app(ExpirationService::class)->isNotifyOwnerOnSuspendEnabled()
-        );
+        return $record !== null
+            && $record->owner_id === auth()->id()
+            && (! $record->isSuspended()
+                || $record->suspension_reason === 'expiration');
     }
 
     protected function getServerUrl(int $serverId): string

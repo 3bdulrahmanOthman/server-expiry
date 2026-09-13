@@ -22,7 +22,9 @@ class SendExpirationSetWebhook
 
         $payload = [
             'server_id' => $event->serverId,
-            'expiration_date' => $event->expirationDate->toString(),
+            'expiration_date' => $event->expirationDate->isPermanent()
+                ? null
+                : $event->expirationDate->getDateTime()->format(\DateTimeInterface::ATOM),
             'timestamp' => $event->occurredOn->format(\DateTimeInterface::ATOM),
         ];
 

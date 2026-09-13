@@ -19,6 +19,7 @@ use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiringWarningNotification;
+use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 use Throwable;
 
 /**
@@ -225,7 +226,10 @@ class ProcessServerExpirationCommand extends Command
                 continue;
             }
 
-            // Attempt to suspend the server
+            // Attempt to suspend the server.
+            // Mark that we are about to perform an expiration-based suspension
+            // so the Server::updating hook stamps suspension_reason correctly.
+            SuspensionContext::setExpirationSuspensionInProgress(true);
             try {
                 $this->suspensionService->handle($server, SuspendAction::Suspend);
 
@@ -268,6 +272,9 @@ class ProcessServerExpirationCommand extends Command
 
                 // Continue with other servers
                 continue;
+            } finally {
+                // Ensure the flag is cleared after each server, success or failure.
+                SuspensionContext::setExpirationSuspensionInProgress(false);
             }
         }
 

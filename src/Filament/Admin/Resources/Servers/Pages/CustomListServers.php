@@ -14,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use DateInterval;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,7 +43,7 @@ class CustomListServers extends ListServers
             Action::make('extend')
                 ->label(trans('server-expiry::strings.action_extend'))
                 ->color('success')
-                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
+                ->authorize(fn (Server $record) => Gate::allows('update', $record))
                 ->action(fn (Server $record) => app(ExpirationService::class)->extendExpiration(
                     $record->getKey(),
                     new DateInterval('P30D')
@@ -56,7 +57,7 @@ class CustomListServers extends ListServers
             Action::make('renew')
                 ->label(trans('server-expiry::strings.action_renew'))
                 ->color('warning')
-                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
+                ->authorize(fn (Server $record) => Gate::allows('update', $record))
                 ->action(function (Server $record) {
                     $expirationService = app(ExpirationService::class);
                     $currentExpiration = $expirationService->getExpiration($record->getKey());
@@ -76,7 +77,7 @@ class CustomListServers extends ListServers
             Action::make('clear')
                 ->label(trans('server-expiry::strings.action_clear'))
                 ->color('danger')
-                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
+                ->authorize(fn (Server $record) => Gate::allows('update', $record))
                 ->action(fn (Server $record) => app(ExpirationService::class)->clearExpiration($record->getKey()))
                 ->requiresConfirmation()
                 ->icon('heroicon-o-trash')
@@ -94,7 +95,7 @@ class CustomListServers extends ListServers
                         ->native(false)
                         ->seconds(false),
                 ])
-                ->authorize(fn (Server $record) => Gate::authorize('update', $record))
+                ->authorize(fn (Server $record) => Gate::allows('update', $record))
                 ->action(function (array $data, Server $record) {
                     app(ExpirationService::class)->setExpiration(
                         $record->getKey(),
@@ -117,7 +118,7 @@ class CustomListServers extends ListServers
             Action::make('check_status')
                 ->label(trans('server-expiry::strings.action_check_status'))
                 ->color('info')
-                ->authorize(fn (Server $record) => Gate::authorize('view', $record))
+                ->authorize(fn (Server $record) => Gate::allows('view', $record))
                 ->action(function (Server $record) {
                     $expirationService = app(ExpirationService::class);
                     $statusText = Expiry::statusText($record);
@@ -149,7 +150,7 @@ class CustomListServers extends ListServers
                     $expirationService = app(ExpirationService::class);
                     $unauthorized = false;
                     foreach ($records as $record) {
-                        if (! Gate::authorize('update', $record)) {
+                        if (! Gate::allows('update', $record)) {
                             $unauthorized = true;
                         }
                     }
@@ -185,7 +186,7 @@ class CustomListServers extends ListServers
                     $expirationService = app(ExpirationService::class);
                     $unauthorized = false;
                     foreach ($records as $record) {
-                        if (! Gate::authorize('update', $record)) {
+                        if (! Gate::allows('update', $record)) {
                             $unauthorized = true;
                         }
                     }
@@ -216,12 +217,9 @@ class CustomListServers extends ListServers
                 ->badge()
                 ->sortable()
                 ->toggleable()
-                ->color(fn (Server $record): string => match (true) {
-                    blank($record->expires_at) => 'gray',
-                    now()->gte(Carbon::parse($record->expires_at)) => 'danger',
-                    now()->addDays(Expiry::warningDays())->gte(Carbon::parse($record->expires_at)) => 'warning',
-                    default => 'success',
-                }),
+                // Defer to the shared Expiry::statusColor() helper so the badge
+                // colors use the same domain semantics as every other surface.
+                ->color(fn (Server $record): string => Expiry::statusColor($record)),
             TextColumn::make('suspension_reason')
                 ->label('Suspension Reason')
                 ->formatStateUsing(fn ($state): string => ucfirst($state ?? 'none'))
