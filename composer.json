@@ -18,12 +18,19 @@
             "SquadronStrike\\ServerExpiry\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "SquadronStrike\\ServerExpiry\\Tests\\": "tests/"
+        }
+    },
     "require-dev": {
-        "laravel/pint": "^1.16"
+        "laravel/pint": "^1.16",
+        "phpunit/phpunit": "^11.5"
     },
     "scripts": {
         "lint": "pint --test",
-        "format": "pint"
+        "format": "pint",
+        "test": "phpunit"
     },
     "config": {
         "sort-packages": true,

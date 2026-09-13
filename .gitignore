@@ -21,3 +21,7 @@ Thumbs.db
 composer.lock
 package-lock.json
 yarn.lock
+# PHPUnit
+.phpunit.cache/
+# Local test tooling (PHPUnit phar)
+/tools/
