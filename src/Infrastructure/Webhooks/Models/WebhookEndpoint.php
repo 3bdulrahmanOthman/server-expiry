@@ -6,7 +6,6 @@ namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookDelivery;
 
 /**
  * Eloquent model for webhook endpoint configurations.
@@ -59,8 +58,6 @@ class WebhookEndpoint extends Model
 
     /**
      * Check if the endpoint is active.
-     *
-     * @return bool
      */
     public function isActive(): bool
     {
@@ -70,13 +67,14 @@ class WebhookEndpoint extends Model
     /**
      * Check if the endpoint is subscribed to a specific event type.
      *
-     * @param string $eventType The event type to check (e.g., 'server.expiry.updated')
+     * @param  string  $eventType  The event type to check (e.g., 'server.expiry.updated')
      * @return bool True if subscribed, false otherwise
      */
     public function isSubscribedToEvent(string $eventType): bool
     {
         // R8 made the events column nullable; treat null as "no subscriptions".
         $events = $this->events ?? [];
+
         return in_array($eventType, $events, true);
     }
 

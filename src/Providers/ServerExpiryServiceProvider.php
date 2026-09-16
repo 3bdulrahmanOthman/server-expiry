@@ -7,7 +7,6 @@ namespace SquadronStrike\ServerExpiry\Providers;
 use App\Enums\TablerIcon;
 use App\Livewire\AlertBanner;
 use App\Models\Server;
-use Facade\FlareClient\Stacktrace;
 use Filament\Facades\Filament;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;

@@ -15,8 +15,9 @@ final class ExpirationPolicy
     /**
      * Create an expiration policy from warning thresholds (in days) and grace period (in hours).
      *
-     * @param list<int> $warningThresholdDays Array of warning thresholds in days (e.g., [7, 3, 1])
-     * @param int $gracePeriodHours Grace period in hours (must be >= 0)
+     * @param  list<int>  $warningThresholdDays  Array of warning thresholds in days (e.g., [7, 3, 1])
+     * @param  int  $gracePeriodHours  Grace period in hours (must be >= 0)
+     *
      * @throws InvalidArgumentException if any threshold is not positive or grace period is negative
      */
     public static function fromArray(array $warningThresholdDays, int $gracePeriodHours): self
@@ -36,8 +37,8 @@ final class ExpirationPolicy
         }
 
         // Sort thresholds descending so we can check the largest first if needed
-        $thresholds = array_map(fn(int $days) => WarningThreshold::fromDays($days), $warningThresholdDays);
-        usort($thresholds, fn(WarningThreshold $a, WarningThreshold $b) => $b->days() - $a->days());
+        $thresholds = array_map(fn (int $days) => WarningThreshold::fromDays($days), $warningThresholdDays);
+        usort($thresholds, fn (WarningThreshold $a, WarningThreshold $b) => $b->days() - $a->days());
 
         return new self(
             $thresholds,
@@ -46,8 +47,7 @@ final class ExpirationPolicy
     }
 
     /**
-     * @param list<WarningThreshold> $warningThresholds
-     * @param GracePeriod $gracePeriod
+     * @param  list<WarningThreshold>  $warningThresholds
      */
     private function __construct(
         private readonly array $warningThresholds,
@@ -67,7 +67,7 @@ final class ExpirationPolicy
      */
     public function warningThresholdsAsDays(): array
     {
-        return array_map(fn(WarningThreshold $wt) => $wt->days(), $this->warningThresholds);
+        return array_map(fn (WarningThreshold $wt) => $wt->days(), $this->warningThresholds);
     }
 
     /**
@@ -94,6 +94,7 @@ final class ExpirationPolicy
         if (empty($this->warningThresholds)) {
             return null;
         }
+
         return $this->warningThresholds[0]->days(); // first element after sorting descending
     }
 
@@ -107,7 +108,7 @@ final class ExpirationPolicy
         }
 
         foreach ($this->warningThresholds as $i => $threshold) {
-            if (!$threshold->equals($other->warningThresholds[$i])) {
+            if (! $threshold->equals($other->warningThresholds[$i])) {
                 return false;
             }
         }

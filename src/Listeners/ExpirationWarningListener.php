@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace SquadronStrike\ServerExpiry\Listeners;
 
 use App\Models\Server;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiringWarningNotification;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Handle the ExpirationWarning event.
@@ -42,6 +42,7 @@ class ExpirationWarningListener
                 // Log but don't throw - we already have the server issue
                 Log::warning("Server Expiry Plugin: Could not update idempotency for non-existent/serverless server ID {$serverId}: {$e->getMessage()}");
             }
+
             return;
         }
 

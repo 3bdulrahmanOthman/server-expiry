@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookDelivery\Pages;
 
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookDelivery\WebhookDeliveryResource;
 
 class ListWebhookDeliveries extends ListRecords

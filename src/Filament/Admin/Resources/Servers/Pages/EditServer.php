@@ -6,16 +6,13 @@ namespace SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages;
 
 use App\Filament\Admin\Resources\Servers\Pages\EditServer as PelicanEditServer;
 use App\Models\Server;
-use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
-use Illuminate\Support\Facades\Gate;
-use Throwable;
 
 /**
  * Plugin-owned custom Edit Server page for the Admin panel.
@@ -38,7 +35,7 @@ class EditServer extends PelicanEditServer
                         ->nullable()
                         ->seconds(false)
                         ->native(false)
-                        ->rule('after_or_equal:today')
+                        ->rule('after_or_equal:today'),
                 ])
                 ->action(function (array $data, Server $record) {
                     if (! Gate::allows('update', $record)) {
@@ -46,6 +43,7 @@ class EditServer extends PelicanEditServer
                             ->danger()
                             ->body('You are not authorized to modify expiration for this server.')
                             ->send();
+
                         return;
                     }
 
@@ -75,6 +73,7 @@ class EditServer extends PelicanEditServer
                             ->danger()
                             ->body('You are not authorized to modify expiration for this server.')
                             ->send();
+
                         return;
                     }
 
@@ -101,6 +100,7 @@ class EditServer extends PelicanEditServer
                             ->danger()
                             ->body('You are not authorized to renew this server.')
                             ->send();
+
                         return;
                     }
 
@@ -137,6 +137,7 @@ class EditServer extends PelicanEditServer
                             ->danger()
                             ->body('You are not authorized to clear expiration for this server.')
                             ->send();
+
                         return;
                     }
 
@@ -152,7 +153,7 @@ class EditServer extends PelicanEditServer
                 ->modalWidth('md')
                 ->modalSubmitActionLabel('Clear')
                 ->modalCancelActionLabel('Cancel')
-                ->destructive()
+                ->destructive(),
         ]);
     }
 }

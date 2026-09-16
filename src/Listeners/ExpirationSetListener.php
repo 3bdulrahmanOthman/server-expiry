@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Listeners;
 
-use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
 use Illuminate\Support\Facades\Log;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
 
 /**
  * Handle the ExpirationSet event.

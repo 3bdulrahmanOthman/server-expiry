@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers;
 
-use App\Services\Acl\Api\AdminAcl;
 use App\Http\Requests\Api\Application\ApplicationApiRequest;
+use App\Services\Acl\Api\AdminAcl;
 
 /**
  * Request class for showing server expiration.

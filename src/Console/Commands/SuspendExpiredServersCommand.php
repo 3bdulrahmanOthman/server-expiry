@@ -65,6 +65,7 @@ class SuspendExpiredServersCommand extends Command
             // Use the expiration service to check if the server should be suspended due to expiration
             if (! $this->expirationService->processExpiration($server->id)) {
                 $this->info("   -> Server ID {$server->id} is not eligible for expiration-based suspension (maybe in grace period or auto-suspend disabled).");
+
                 continue;
             }
 

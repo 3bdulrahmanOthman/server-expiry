@@ -27,7 +27,7 @@ final class ExpirationDate
     /**
      * Create an expiration from a DateTimeInterface.
      *
-     * @param DateTimeInterface|null $dateTime The expiration date/time, or null for permanent
+     * @param  DateTimeInterface|null  $dateTime  The expiration date/time, or null for permanent
      */
     public static function fromDateTime(?DateTimeInterface $dateTime): self
     {
@@ -37,7 +37,7 @@ final class ExpirationDate
     /**
      * Create an expiration from a timestamp string.
      *
-     * @param string|null $dateString Date/time string parsable by DateTimeImmutable, or null for permanent
+     * @param  string|null  $dateString  Date/time string parsable by DateTimeImmutable, or null for permanent
      */
     public static function fromString(?string $dateString): self
     {
@@ -51,6 +51,7 @@ final class ExpirationDate
             // time when the repository formats it for persistence.
             $dateTime = (new DateTimeImmutable($dateString))
                 ->setTimezone(new \DateTimeZone(date_default_timezone_get()));
+
             return new self($dateTime);
         } catch (\Exception $exception) {
             throw new InvalidArgumentException(
@@ -62,7 +63,7 @@ final class ExpirationDate
     }
 
     /**
-     * @param DateTimeInterface|null $dateTime The expiration date/time, or null for permanent
+     * @param  DateTimeInterface|null  $dateTime  The expiration date/time, or null for permanent
      */
     private function __construct(
         private readonly ?DateTimeInterface $dateTime
@@ -87,7 +88,7 @@ final class ExpirationDate
     /**
      * Check if the server has expired based on current time.
      *
-     * @param DateTimeInterface|null $now Optional time to check against (for testing)
+     * @param  DateTimeInterface|null  $now  Optional time to check against (for testing)
      */
     public function isExpired(?DateTimeInterface $now = null): bool
     {
@@ -103,8 +104,8 @@ final class ExpirationDate
     /**
      * Check if the server is in the warning period.
      *
-     * @param DateTimeInterface $now Current time
-     * @param int $warningDays Number of days before expiration to consider as warning
+     * @param  DateTimeInterface  $now  Current time
+     * @param  int  $warningDays  Number of days before expiration to consider as warning
      */
     public function isInWarningPeriod(DateTimeInterface $now, int $warningDays): bool
     {
@@ -112,7 +113,7 @@ final class ExpirationDate
             return false;
         }
 
-        $warningStart = $this->dateTime->modify('-' . $warningDays . ' days');
+        $warningStart = $this->dateTime->modify('-'.$warningDays.' days');
 
         return $now >= $warningStart && $now < $this->dateTime;
     }
@@ -120,16 +121,16 @@ final class ExpirationDate
     /**
      * Check if the server is in the grace period.
      *
-     * @param DateTimeInterface $now Current time
-     * @param int $graceHours Number of hours after expiration for grace period
+     * @param  DateTimeInterface  $now  Current time
+     * @param  int  $graceHours  Number of hours after expiration for grace period
      */
     public function isInGracePeriod(DateTimeInterface $now, int $graceHours): bool
     {
-        if ($this->isPermanent() || !$this->isExpired($now)) {
+        if ($this->isPermanent() || ! $this->isExpired($now)) {
             return false;
         }
 
-        $graceEnd = $this->dateTime->modify('+' . $graceHours . ' hours');
+        $graceEnd = $this->dateTime->modify('+'.$graceHours.' hours');
 
         return $now <= $graceEnd;
     }
@@ -137,9 +138,9 @@ final class ExpirationDate
     /**
      * Get the expiration status based on current time and configuration.
      *
-     * @param DateTimeInterface $now Current time
-     * @param int $warningDays Number of days before expiration for warning period
-     * @param int $graceHours Number of hours after expiration for grace period
+     * @param  DateTimeInterface  $now  Current time
+     * @param  int  $warningDays  Number of days before expiration for warning period
+     * @param  int  $graceHours  Number of hours after expiration for grace period
      */
     public function getStatus(DateTimeInterface $now, int $warningDays, int $graceHours): ExpirationStatus
     {
@@ -165,7 +166,7 @@ final class ExpirationDate
     /**
      * Get the remaining time as a DateInterval.
      *
-     * @param DateTimeInterface|null $now Optional time to calculate from (for testing)
+     * @param  DateTimeInterface|null  $now  Optional time to calculate from (for testing)
      * @return DateInterval|null Null if permanent, otherwise the interval until expiration
      */
     public function getRemainingTime(?DateTimeInterface $now = null): ?\DateInterval

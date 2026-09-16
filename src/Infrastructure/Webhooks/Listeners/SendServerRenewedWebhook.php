@@ -6,7 +6,6 @@ namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Listeners;
 
 use SquadronStrike\ServerExpiry\Domain\Events\ServerRenewed;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\WebhookService;
-use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 
 /**
  * Handle the ServerRenewed event by sending a webhook.

@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks;
 
 use App\Models\Server;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
-use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookEndpoint;
+use Illuminate\Support\Facades\Log;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookDelivery;
+use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookEndpoint;
 
 /**
  * Service responsible for delivering webhooks with retry logic and exponential backoff.
@@ -31,16 +29,15 @@ class WebhookDeliveryService
     /**
      * Queue a webhook delivery for processing.
      *
-     * @param WebhookEndpoint $endpoint The webhook endpoint configuration
-     * @param string $eventType The type of event (e.g., 'server.expiry.updated')
-     * @param string $serverId The ID of the server associated with the event
-     * @param array $payload The data payload to send
-     * @return void
+     * @param  WebhookEndpoint  $endpoint  The webhook endpoint configuration
+     * @param  string  $eventType  The type of event (e.g., 'server.expiry.updated')
+     * @param  int|string  $serverId  The ID of the server associated with the event
+     * @param  array  $payload  The data payload to send
      */
     public function queueDelivery(
         WebhookEndpoint $endpoint,
         string $eventType,
-        string $serverId,
+        int|string $serverId,
         array $payload
     ): void {
         // Only proceed if the endpoint is active and subscribed to this event type
@@ -52,7 +49,7 @@ class WebhookDeliveryService
         $delivery = WebhookDelivery::create([
             'webhook_endpoint_id' => $endpoint->id,
             'event_type' => $eventType,
-            'server_id' => $serverId,
+            'server_id' => (string) $serverId,
             'payload' => $payload,
             'attempt' => 1,
             'max_attempts' => self::MAX_ATTEMPTS,
@@ -68,8 +65,7 @@ class WebhookDeliveryService
     /**
      * Attempt to deliver a webhook.
      *
-     * @param WebhookDelivery $delivery The delivery record to process
-     * @return void
+     * @param  WebhookDelivery  $delivery  The delivery record to process
      */
     public function attemptDelivery(WebhookDelivery $delivery): void
     {
@@ -99,7 +95,7 @@ class WebhookDeliveryService
             // Generate signature and timestamp
             $secretKey = $endpoint->secret_key ?? '';
             $timestamp = WebhookSignature::generateTimestamp();
-            $signature = WebhookSignature::generate($jsonPayload . $timestamp, $secretKey);
+            $signature = WebhookSignature::generate($jsonPayload.$timestamp, $secretKey);
 
             // Prepare headers
             $headers = [
@@ -139,9 +135,8 @@ class WebhookDeliveryService
     /**
      * Handle a failed delivery attempt.
      *
-     * @param WebhookDelivery $delivery The delivery record that failed
-     * @param \Throwable $exception The exception that caused the failure
-     * @return void
+     * @param  WebhookDelivery  $delivery  The delivery record that failed
+     * @param  \Throwable  $exception  The exception that caused the failure
      */
     private function handleDeliveryFailure(WebhookDelivery $delivery, \Throwable $exception): void
     {
@@ -150,7 +145,7 @@ class WebhookDeliveryService
 
         // Log the failure
         Log::error(
-            "Webhook delivery failed for endpoint {$delivery->webhook_endpoint_id}, " .
+            "Webhook delivery failed for endpoint {$delivery->webhook_endpoint_id}, ".
             "attempt {$attempt}/{$maxAttempts}: {$exception->getMessage()}"
         );
 

@@ -6,7 +6,6 @@ namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Listeners;
 
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\WebhookService;
-use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
 
 /**
  * Handle the ExpirationWarning event by sending a webhook.

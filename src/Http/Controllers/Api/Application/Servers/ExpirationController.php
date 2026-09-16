@@ -7,7 +7,6 @@ namespace SquadronStrike\ServerExpiry\Http\Controllers\Api\Application\Servers;
 use App\Http\Controllers\Api\Application\ApplicationApiController;
 use App\Models\Server;
 use DateTimeInterface;
-use Illuminate\Http\JsonResponse;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\InvalidExpirationOperation;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
@@ -54,6 +53,7 @@ class ExpirationController extends ApplicationApiController
 
         if ($data['permanent'] ?? false) {
             $this->expirationService->clearExpiration($server->id);
+
             return response()->json(['message' => 'Expiration cleared']);
         } else {
             if (! isset($data['expires_at'])) {
@@ -64,6 +64,7 @@ class ExpirationController extends ApplicationApiController
 
             $expirationDate = ExpirationDate::fromString($data['expires_at']);
             $this->expirationService->setExpiration($server->id, $expirationDate);
+
             return response()->json(['message' => 'Expiration set']);
         }
     }
@@ -73,7 +74,7 @@ class ExpirationController extends ApplicationApiController
         $data = $request->validated();
 
         try {
-            $interval = new \DateInterval('PT' . $data['hours'] . 'H');
+            $interval = new \DateInterval('PT'.$data['hours'].'H');
             $newExpiration = $this->expirationService->extendExpiration($server->id, $interval);
         } catch (InvalidExpirationOperation $exception) {
             // e.g. extending a permanent server — a domain rule violation,
@@ -83,7 +84,7 @@ class ExpirationController extends ApplicationApiController
 
         return response()->json([
             'message' => 'Expiration extended',
-            'new_expires_at' => $newExpiration->isPermanent() ? null : $newExpiration->getDateTime()->format(DateTimeInterface::ATOM)
+            'new_expires_at' => $newExpiration->isPermanent() ? null : $newExpiration->getDateTime()->format(DateTimeInterface::ATOM),
         ]);
     }
 
@@ -91,7 +92,7 @@ class ExpirationController extends ApplicationApiController
     {
         $data = $request->validated();
 
-        if (($data['permanent'] ?? false) && !$this->expirationService->getExpiration($server->id)->isPermanent()) {
+        if (($data['permanent'] ?? false) && ! $this->expirationService->getExpiration($server->id)->isPermanent()) {
             return response()->json(['message' => 'Cannot renew to permanent'], 400);
         }
 
@@ -107,13 +108,14 @@ class ExpirationController extends ApplicationApiController
             $expirationDate = ExpirationDate::fromString($data['expires_at']);
             $this->expirationService->renew($server->id, $expirationDate);
         }
-        
+
         return response()->json(['message' => 'Server renewed']);
     }
 
     public function destroy(ClearExpirationRequest $request, Server $server)
     {
         $this->expirationService->clearExpiration($server->id);
+
         return response()->json(['message' => 'Expiration cleared']);
     }
 }
