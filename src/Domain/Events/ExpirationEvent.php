@@ -11,8 +11,8 @@ namespace SquadronStrike\ServerExpiry\Domain\Events;
 abstract class ExpirationEvent
 {
     /**
-     * @param string $serverId The unique identifier of the server
-     * @param \DateTimeImmutable $occurredOn When the event occurred
+     * @param  string  $serverId  The unique identifier of the server
+     * @param  \DateTimeImmutable  $occurredOn  When the event occurred
      */
     public function __construct(
         public readonly string $serverId,

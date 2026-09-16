@@ -20,13 +20,13 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Get the expiration date for a server.
      *
-     * @param string $serverId The unique identifier of the server
+     * @param  string  $serverId  The unique identifier of the server
      * @return ExpirationDate The expiration date (may be permanent)
      */
     public function getExpiration(string $serverId): ExpirationDate
     {
         // Check if the servers table exists and has the expires_at column
-        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'expires_at')) {
+        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'expires_at')) {
             // If table/column doesn't exist yet, treat as permanent (backward compatibility)
             return ExpirationDate::permanent();
         }
@@ -48,14 +48,13 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Set the expiration date for a server.
      *
-     * @param string $serverId The unique identifier of the server
-     * @param ExpirationDate $expirationDate The expiration date to set
-     * @return void
+     * @param  string  $serverId  The unique identifier of the server
+     * @param  ExpirationDate  $expirationDate  The expiration date to set
      */
     public function setExpiration(string $serverId, ExpirationDate $expirationDate): void
     {
         // Check if the servers table exists and has the expires_at column
-        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'expires_at')) {
+        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'expires_at')) {
             // If table/column doesn't exist yet, we can't persist the data
             // In a real implementation, we might want to log this or throw an exception
             return;
@@ -73,13 +72,12 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Clear the expiration date for a server (make it permanent).
      *
-     * @param string $serverId The unique identifier of the server
-     * @return void
+     * @param  string  $serverId  The unique identifier of the server
      */
     public function clearExpiration(string $serverId): void
     {
         // Check if the servers table exists and has the expires_at column
-        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'expires_at')) {
+        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'expires_at')) {
             // If table/column doesn't exist yet, we can't persist the data
             return;
         }
@@ -98,6 +96,7 @@ class EloquentExpirationRepository implements ExpirationRepository
     public function getGracePeriod(): GracePeriod
     {
         $hours = config('server-expiry.grace_period_hours', 0);
+
         return GracePeriod::fromHours($hours);
     }
 
@@ -112,8 +111,9 @@ class EloquentExpirationRepository implements ExpirationRepository
         // Drop zero/negative entries so a misconfigured value (e.g. empty env
         // string collapsing to [0]) cannot throw in WarningThreshold::fromDays
         $days = array_values(array_filter($days, fn (int $day) => $day > 0));
-        $thresholds = array_map(fn(int $day) => WarningThreshold::fromDays($day), $days);
+        $thresholds = array_map(fn (int $day) => WarningThreshold::fromDays($day), $days);
         sort($thresholds); // Sort ascending for consistent processing
+
         return $thresholds;
     }
 
@@ -140,13 +140,13 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Get the suspension reason for a server.
      *
-     * @param string $serverId The unique identifier of the server
+     * @param  string  $serverId  The unique identifier of the server
      * @return string|null The suspension reason ('expiration', 'manual') or null if not suspended or reason unknown
      */
     public function getSuspensionReason(string $serverId): ?string
     {
         // Check if the servers table exists and has the suspension_reason column
-        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'suspension_reason')) {
+        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'suspension_reason')) {
             // If table/column doesn't exist yet, we cannot determine the reason
             return null;
         }
@@ -163,13 +163,12 @@ class EloquentExpirationRepository implements ExpirationRepository
      * Set the suspension reason to expiration for a server.
      * This indicates that the server is suspended due to expiration.
      *
-     * @param string $serverId The unique identifier of the server
-     * @return void
+     * @param  string  $serverId  The unique identifier of the server
      */
     public function setSuspensionDueToExpiration(string $serverId): void
     {
         // Check if the servers table exists and has the suspension_reason column
-        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'suspension_reason')) {
+        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'suspension_reason')) {
             // If table/column doesn't exist yet, we cannot persist the data
             return;
         }
@@ -184,13 +183,12 @@ class EloquentExpirationRepository implements ExpirationRepository
      * Clear the suspension reason for a server.
      * This is used when the server is no longer suspended due to expiration.
      *
-     * @param string $serverId The unique identifier of the server
-     * @return void
+     * @param  string  $serverId  The unique identifier of the server
      */
     public function clearSuspensionDueToExpiration(string $serverId): void
     {
         // Check if the servers table exists and has the suspension_reason column
-        if (!Schema::hasTable('servers') || !Schema::hasColumn('servers', 'suspension_reason')) {
+        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'suspension_reason')) {
             // If table/column doesn't exist yet, we cannot persist the data
             return;
         }

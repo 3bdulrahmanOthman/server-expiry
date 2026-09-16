@@ -12,7 +12,6 @@ use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Form;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -51,22 +50,21 @@ class ExpirySettingsPage extends ServerFormPage
                 Section::make(trans('server-expiry::strings.section_title'))
                     ->schema([
                         Placeholder::make('status_icon')
-                            ->label(trans("server-expiry::strings.status_label"))
+                            ->label(trans('server-expiry::strings.status_label'))
                             ->content(fn (?Server $record): string => $record !== null ? match (Expiry::statusColor($record)) {
-                                "gray" => "<svg class=\"w-5 h-5 text-gray-400\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V9a2 2 0 002-2H5a2 2 0 002 2v10a2 2 0 002 2z\/></svg>",
-                                "success" => "<svg class=\"w-5 h-5 text-green-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\/></svg>",
-                                "warning" => "<svg class=\"w-5 h-5 text-yellow-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z\/></svg>",
+                                'gray' => "<svg class=\"w-5 h-5 text-gray-400\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V9a2 2 0 002-2H5a2 2 0 002 2v10a2 2 0 002 2z\/></svg>",
+                                'success' => "<svg class=\"w-5 h-5 text-green-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\/></svg>",
+                                'warning' => "<svg class=\"w-5 h-5 text-yellow-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c.77-1.333-.268-2.853-1.732-3H6.938c-.77 1.333-2.202 1.667-1.732 3z\/></svg>",
                             } : "<svg class=\"w-5 h-5 text-gray-400\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\/></svg>")
                             ->columnSpan([1]),
                         Placeholder::make('status_text')
-                            ->label("")
-                            ->content(fn (?Server $record): string => $record !== null ? Expiry::statusText($record) : "")
+                            ->label('')
+                            ->content(fn (?Server $record): string => $record !== null ? Expiry::statusText($record) : '')
                             ->columnSpan([2]),
                         // Expiration date
                         Forms\Components\Placeholder::make('expires_at')
                             ->label(trans('server-expiry::strings.field_label'))
-                            ->content(fn (?Server $record): ?string =>
-                                $record !== null && $record->expires_at ? Carbon::parse($record->expires_at)->format('Y-m-d H:i') : null)
+                            ->content(fn (?Server $record): ?string => $record !== null && $record->expires_at ? Carbon::parse($record->expires_at)->format('Y-m-d H:i') : null)
                             ->placeholder(trans('server-expiry::strings.column_permanent'))
                             ->columnSpan([1]),
                         // Time remaining
@@ -109,10 +107,8 @@ class ExpirySettingsPage extends ServerFormPage
                         // Suspension reason
                         Forms\Components\Placeholder::make('suspension_reason')
                             ->label(trans('server-expiry::strings.suspension_reason_label'))
-                            ->content(fn (?Server $record): string =>
-                                $record !== null && $record->suspension_reason ? ucfirst($record->suspension_reason) : 'none')
-                            ->visible(fn (?Server $record): bool =>
-                                $record !== null && $record->isSuspended() &&
+                            ->content(fn (?Server $record): string => $record !== null && $record->suspension_reason ? ucfirst($record->suspension_reason) : 'none')
+                            ->visible(fn (?Server $record): bool => $record !== null && $record->isSuspended() &&
                                 in_array($record->suspension_reason ?? '', ['expiration', 'manual', 'other']))
                             ->columnSpanFull(),
                     ])
@@ -140,6 +136,7 @@ class ExpirySettingsPage extends ServerFormPage
                             ->danger()
                             ->body('You are not authorized to renew this server.')
                             ->send();
+
                         return;
                     }
 
@@ -174,8 +171,8 @@ class ExpirySettingsPage extends ServerFormPage
                 ->modalSubmitActionLabel(trans('server-expiry::strings.action_renew'))
                 ->modalCancelActionLabel('Cancel')
                 ->modalDescription(
-                    'Renewing your server will set a new expiration date. ' .
-                    'If the server is currently suspended due to expiration, ' .
+                    'Renewing your server will set a new expiration date. '.
+                    'If the server is currently suspended due to expiration, '.
                     'it will be automatically renewed.'
                 )
                 ->visible(fn (?Server $record): bool => $this->canRenewOrSetExpiration($record))
@@ -192,7 +189,7 @@ class ExpirySettingsPage extends ServerFormPage
                         ->nullable()
                         ->seconds(false)
                         ->native(false)
-                        ->rule('after_or_equal:today')
+                        ->rule('after_or_equal:today'),
                 ])
                 ->action(function (array $data, Server $record) {
                     // Authorization check: only the server owner may change the
@@ -202,6 +199,7 @@ class ExpirySettingsPage extends ServerFormPage
                             ->danger()
                             ->body('You are not authorized to modify expiration for this server.')
                             ->send();
+
                         return;
                     }
 
@@ -221,7 +219,7 @@ class ExpirySettingsPage extends ServerFormPage
                 ->modalSubmitActionLabel(trans('server-expiry::strings.action_set_expiration'))
                 ->modalCancelActionLabel('Cancel')
                 ->visible(fn (?Server $record): bool => $this->canRenewOrSetExpiration($record))
-                ->tooltip(trans('server-expiry::strings.action_set_expiration_tooltip'))
+                ->tooltip(trans('server-expiry::strings.action_set_expiration_tooltip')),
         ];
     }
 
@@ -231,9 +229,6 @@ class ExpirySettingsPage extends ServerFormPage
      * subuser permission exists. Renewal stays available while the server is
      * expiration-suspended (renewing revives it), but not for manual
      * suspensions.
-     *
-     * @param  Server|null  $record
-     * @return bool
      */
     private function canRenewOrSetExpiration(?Server $record): bool
     {

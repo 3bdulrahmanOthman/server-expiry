@@ -5,22 +5,19 @@ declare(strict_types=1);
 namespace SquadronStrike\ServerExpiry\Application\Services;
 
 use DateTimeImmutable;
+use Illuminate\Support\Facades\Event;
 use SquadronStrike\ServerExpiry\Application\Contracts\ExpirationRepository;
 use SquadronStrike\ServerExpiry\Application\Contracts\ExpirationService as ExpirationServiceInterface;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCleared;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCreated;
+use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
+use SquadronStrike\ServerExpiry\Domain\Events\ServerRenewed;
+use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
 use SquadronStrike\ServerExpiry\Domain\Expiration\Enums\ExpirationStatus;
-use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\ExpirationException;
 use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\InvalidExpirationOperation;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\GracePeriod;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
-use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCreated;
-use SquadronStrike\ServerExpiry\Domain\Events\ExpirationCleared;
-use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
-use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
-use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
-use SquadronStrike\ServerExpiry\Domain\Events\ServerRenewed;
-use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
-use Illuminate\Support\Facades\Event;
 
 /**
  * Application service for expiration management.
@@ -29,7 +26,7 @@ use Illuminate\Support\Facades\Event;
 final class ExpirationService implements ExpirationServiceInterface
 {
     /**
-     * @param ExpirationRepository $repository Persistence repository for expiration data
+     * @param  ExpirationRepository  $repository  Persistence repository for expiration data
      */
     public function __construct(
         private readonly ExpirationRepository $repository
@@ -37,8 +34,6 @@ final class ExpirationService implements ExpirationServiceInterface
 
     /**
      * Get the expiration repository.
-     *
-     * @return ExpirationRepository
      */
     public function getRepository(): ExpirationRepository
     {
@@ -58,7 +53,7 @@ final class ExpirationService implements ExpirationServiceInterface
         }
 
         // If setting the same expiration date, do nothing
-        if (!$expirationDate->isPermanent() && !$currentExpiration->isPermanent()
+        if (! $expirationDate->isPermanent() && ! $currentExpiration->isPermanent()
             && $expirationDate->equals($currentExpiration)) {
             return;
         }
@@ -139,7 +134,7 @@ final class ExpirationService implements ExpirationServiceInterface
         $currentExpiration = $this->repository->getExpiration($serverId);
 
         // If setting the same expiration date, do nothing
-        if (!$newExpirationDate->isPermanent() && !$currentExpiration->isPermanent()
+        if (! $newExpirationDate->isPermanent() && ! $currentExpiration->isPermanent()
             && $newExpirationDate->equals($currentExpiration)) {
             return;
         }
@@ -173,7 +168,7 @@ final class ExpirationService implements ExpirationServiceInterface
 
         // Convert warning thresholds to array of days (integers)
         $warningDaysArray = array_map(
-            fn(WarningThreshold $wt) => $wt->days(),
+            fn (WarningThreshold $wt) => $wt->days(),
             $warningThresholds
         );
 
@@ -245,7 +240,7 @@ final class ExpirationService implements ExpirationServiceInterface
     public function processExpiration(string $serverId): bool
     {
         // Check if auto-suspansion is enabled
-        if (!$this->repository->isAutoSuspendEnabled()) {
+        if (! $this->repository->isAutoSuspendEnabled()) {
             return false;
         }
 
@@ -253,7 +248,7 @@ final class ExpirationService implements ExpirationServiceInterface
         $now = new DateTimeImmutable('now');
 
         // Check if server is expired
-        if (!$expirationDate->isExpired($now)) {
+        if (! $expirationDate->isExpired($now)) {
             return false;
         }
 
@@ -293,8 +288,7 @@ final class ExpirationService implements ExpirationServiceInterface
 
         // Convert to array of WarningThreshold objects sorted by days descending
         // so we check largest threshold first
-        usort($warningThresholds, fn(WarningThreshold $a, WarningThreshold $b) =>
-            $b->days() - $a->days()
+        usort($warningThresholds, fn (WarningThreshold $a, WarningThreshold $b) => $b->days() - $a->days()
         );
 
         // Check each warning threshold

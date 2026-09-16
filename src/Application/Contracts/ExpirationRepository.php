@@ -17,7 +17,7 @@ interface ExpirationRepository
     /**
      * Get the expiration date for a server.
      *
-     * @param string $serverId The unique identifier of the server
+     * @param  string  $serverId  The unique identifier of the server
      * @return ExpirationDate The expiration date (may be permanent)
      */
     public function getExpiration(string $serverId): ExpirationDate;
@@ -25,17 +25,15 @@ interface ExpirationRepository
     /**
      * Set the expiration date for a server.
      *
-     * @param string $serverId The unique identifier of the server
-     * @param ExpirationDate $expirationDate The expiration date to set
-     * @return void
+     * @param  string  $serverId  The unique identifier of the server
+     * @param  ExpirationDate  $expirationDate  The expiration date to set
      */
     public function setExpiration(string $serverId, ExpirationDate $expirationDate): void;
 
     /**
      * Clear the expiration date for a server (make it permanent).
      *
-     * @param string $serverId The unique identifier of the server
-     * @return void
+     * @param  string  $serverId  The unique identifier of the server
      */
     public function clearExpiration(string $serverId): void;
 

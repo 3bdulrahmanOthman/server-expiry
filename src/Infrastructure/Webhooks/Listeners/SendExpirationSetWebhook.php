@@ -6,7 +6,6 @@ namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Listeners;
 
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationSet;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\WebhookService;
-use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 
 /**
  * Handle the ExpirationSet event by sending a webhook.

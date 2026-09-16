@@ -6,18 +6,17 @@ namespace SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages;
 
 use App\Filament\Admin\Resources\Servers\Pages\ListServers;
 use App\Models\Server;
+use DateInterval;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Forms;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Gate;
-use DateInterval;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 use SquadronStrike\ServerExpiry\Support\Expiry;
@@ -129,13 +128,13 @@ class CustomListServers extends ListServers
 
                     Notification::make()
                         ->info()
-                        ->title(trans('server-expiry::strings.action_check_status') . ' #' . $record->id)
+                        ->title(trans('server-expiry::strings.action_check_status').' #'.$record->id)
                         ->body(
-                            trans('server-expiry::strings.status_label') . ": {$statusText}\n".
-                            trans('server-expiry::strings.remaining_label') . ": {$remainingText}\n".
-                            trans('server-expiry::strings.status_label') . " Expired: " . ($isExpired ? 'Yes' : 'No') . "\n".
-                            trans('server-expiry::strings.status_label') . " In Grace Period: " . ($isInGracePeriod ? 'Yes' : 'No') . "\n".
-                            trans('server-expiry::strings.suspension_reason_label') . ": {$suspensionReason}"
+                            trans('server-expiry::strings.status_label').": {$statusText}\n".
+                            trans('server-expiry::strings.remaining_label').": {$remainingText}\n".
+                            trans('server-expiry::strings.status_label').' Expired: '.($isExpired ? 'Yes' : 'No')."\n".
+                            trans('server-expiry::strings.status_label').' In Grace Period: '.($isInGracePeriod ? 'Yes' : 'No')."\n".
+                            trans('server-expiry::strings.suspension_reason_label').": {$suspensionReason}"
                         )
                         ->send();
                 })
@@ -159,6 +158,7 @@ class CustomListServers extends ListServers
                             ->warning()
                             ->body('You are not authorized to renew one or more servers.')
                             ->send();
+
                         return;
                     }
                     foreach ($records as $record) {
@@ -195,6 +195,7 @@ class CustomListServers extends ListServers
                             ->warning()
                             ->body('You are not authorized to clear expiration for one or more servers.')
                             ->send();
+
                         return;
                     }
                     foreach ($records as $record) {

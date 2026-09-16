@@ -12,9 +12,9 @@ use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
 final class ExpirationWarning extends ExpirationEvent
 {
     /**
-     * @param string $serverId The unique identifier of the server
-     * @param WarningThreshold $threshold The warning threshold that was triggered
-     * @param \DateTimeImmutable $occurredOn When the event occurred
+     * @param  string  $serverId  The unique identifier of the server
+     * @param  WarningThreshold  $threshold  The warning threshold that was triggered
+     * @param  \DateTimeImmutable  $occurredOn  When the event occurred
      */
     public function __construct(
         string $serverId,

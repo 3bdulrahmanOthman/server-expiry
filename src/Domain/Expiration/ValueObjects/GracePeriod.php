@@ -13,7 +13,8 @@ final class GracePeriod
     /**
      * Create a grace period from hours.
      *
-     * @param int $hours Number of hours, must be >= 0
+     * @param  int  $hours  Number of hours, must be >= 0
+     *
      * @throws InvalidArgumentException if hours is negative
      */
     public static function fromHours(int $hours): self
@@ -36,7 +37,7 @@ final class GracePeriod
     }
 
     /**
-     * @param int $hours Number of hours
+     * @param  int  $hours  Number of hours
      */
     private function __construct(
         private readonly int $hours

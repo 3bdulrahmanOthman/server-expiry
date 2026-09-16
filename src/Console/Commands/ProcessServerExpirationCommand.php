@@ -17,8 +17,6 @@ use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
-use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
-use SquadronStrike\ServerExpiry\Notifications\ServerExpiringWarningNotification;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 use Throwable;
 
@@ -77,6 +75,7 @@ class ProcessServerExpirationCommand extends Command
 
         if (empty($warningDays)) {
             $this->warn('No warning thresholds configured (SERVER_EXPIRY_WARNING_DAYS). Skipping warning processing.');
+
             return 0;
         }
 
@@ -141,6 +140,7 @@ class ProcessServerExpirationCommand extends Command
                     'expiry_warning',
                     (string) $warningThreshold
                 );
+
                 // Continue to next server
                 continue;
             }
@@ -222,6 +222,7 @@ class ProcessServerExpirationCommand extends Command
                     'expiration'
                 );
                 Log::error("Server Expiry Plugin: Failed to dispatch ServerExpired event for server ID {$server->id}: {$e->getMessage()}");
+
                 // Continue to next server (we still claimed the notification, so it will be retried)
                 continue;
             }
@@ -247,6 +248,7 @@ class ProcessServerExpirationCommand extends Command
                         'server_expired',
                         'expiration'
                     );
+
                     // Continue to next server
                     continue;
                 }
@@ -286,9 +288,6 @@ class ProcessServerExpirationCommand extends Command
     /**
      * Attempt to claim a notification for processing.
      *
-     * @param  string  $serverId
-     * @param  string  $notificationType
-     * @param  string  $identifier
      * @return bool True if claimed, false otherwise
      */
     private function claimNotification(string $serverId, string $notificationType, string $identifier): bool
@@ -339,11 +338,6 @@ class ProcessServerExpirationCommand extends Command
 
     /**
      * Mark a notification as failed (to allow retry).
-     *
-     * @param  string  $serverId
-     * @param  string  $notificationType
-     * @param  string  $identifier
-     * @return void
      */
     private function markNotificationAsFailed(string $serverId, string $notificationType, string $identifier): void
     {

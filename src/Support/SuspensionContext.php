@@ -12,9 +12,7 @@ final class SuspensionContext
 {
     private static bool $isExpirationSuspensionInProgress = false;
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function setExpirationSuspensionInProgress(bool $flag): void
     {

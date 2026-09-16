@@ -14,11 +14,11 @@ use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 final class ExpirationInfo
 {
     /**
-     * @param string $serverId The unique identifier of the server
-     * @param ExpirationDate $expirationDate The expiration date
-     * @param ExpirationStatus $status The current expiration status
-     * @param \DateInterval|null $remainingTime The remaining time until expiration, or null if permanent
-     * @param bool $isInGracePeriod Whether the server is in grace period
+     * @param  string  $serverId  The unique identifier of the server
+     * @param  ExpirationDate  $expirationDate  The expiration date
+     * @param  ExpirationStatus  $status  The current expiration status
+     * @param  \DateInterval|null  $remainingTime  The remaining time until expiration, or null if permanent
+     * @param  bool  $isInGracePeriod  Whether the server is in grace period
      */
     public function __construct(
         public readonly string $serverId,
@@ -31,11 +31,11 @@ final class ExpirationInfo
     /**
      * Create an ExpirationInfo from raw data.
      *
-     * @param string $serverId The server ID
-     * @param ExpirationDate $expirationDate The expiration date
-     * @param ExpirationStatus $status The expiration status
-     * @param \DateInterval|null $remainingTime The remaining time
-     * @param bool $isInGracePeriod Whether in grace period
+     * @param  string  $serverId  The server ID
+     * @param  ExpirationDate  $expirationDate  The expiration date
+     * @param  ExpirationStatus  $status  The expiration status
+     * @param  \DateInterval|null  $remainingTime  The remaining time
+     * @param  bool  $isInGracePeriod  Whether in grace period
      * @return static
      */
     public static function fromData(

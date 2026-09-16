@@ -26,11 +26,11 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Wizard\Step;
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\CustomListServers;
-use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookEndpoint\WebhookEndpointResource;
+use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\EditServer as CustomEditServer;
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookDelivery\WebhookDeliveryResource;
+use SquadronStrike\ServerExpiry\Filament\Admin\Resources\WebhookEndpoint\WebhookEndpointResource;
 use SquadronStrike\ServerExpiry\Support\Expiry;
 use Throwable;
-use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\EditServer as CustomEditServer;
 
 class ServerExpiryPlugin implements HasPluginSettings, Plugin
 {
@@ -118,6 +118,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                                                 ->body($exception->getMessage())
                                                 ->danger()
                                                 ->send();
+
                                             return;
                                         }
 
@@ -145,8 +146,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                             // Suspension reason (conditional)
                             Placeholder::make('suspension_reason')
                                 ->label(trans('server-expiry::strings.suspension_reason_label'))
-                                ->content(fn (?Server $record): string =>
-                                    $record !== null && $record->isSuspended() && $record->suspension_reason
+                                ->content(fn (?Server $record): string => $record !== null && $record->isSuspended() && $record->suspension_reason
                                         ? ucfirst($record->suspension_reason)
                                         : trans('server-expiry::strings.none')
                                 )

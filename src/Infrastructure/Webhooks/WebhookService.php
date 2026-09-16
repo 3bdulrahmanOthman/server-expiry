@@ -15,10 +15,9 @@ class WebhookService
     /**
      * Dispatch a webhook for the given expiration event.
      *
-     * @param string $eventType The type of expiration event (e.g., 'server.expiry.updated')
-     * @param string $serverId The ID of the server associated with the event
-     * @param array $payload The data payload to send in the webhook
-     * @return void
+     * @param  string  $eventType  The type of expiration event (e.g., 'server.expiry.updated')
+     * @param  string  $serverId  The ID of the server associated with the event
+     * @param  array  $payload  The data payload to send in the webhook
      */
     public function dispatch(string $eventType, string $serverId, array $payload): void
     {
@@ -39,7 +38,7 @@ class WebhookService
             } catch (\Throwable $exception) {
                 // Log the error but don't let webhook failures affect the main expiration flow
                 Log::error(
-                    "Webhook Service: Failed to queue webhook for endpoint {$endpoint->id}, " .
+                    "Webhook Service: Failed to queue webhook for endpoint {$endpoint->id}, ".
                     "event {$eventType}, server {$serverId}: {$exception->getMessage()}"
                 );
                 // Continue with other endpoints - webhook failures should not break expiration processing

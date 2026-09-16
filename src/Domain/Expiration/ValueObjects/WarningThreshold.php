@@ -13,7 +13,8 @@ final class WarningThreshold
     /**
      * Create a warning threshold from days.
      *
-     * @param int $days Number of days, must be > 0
+     * @param  int  $days  Number of days, must be > 0
+     *
      * @throws InvalidArgumentException if days is not positive
      */
     public static function fromDays(int $days): self
@@ -28,7 +29,7 @@ final class WarningThreshold
     }
 
     /**
-     * @param int $days Number of days
+     * @param  int  $days  Number of days
      */
     private function __construct(
         private readonly int $days

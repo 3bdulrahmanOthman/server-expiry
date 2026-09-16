@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookEndpoint;
 
 /**
  * Eloquent model for tracking webhook delivery attempts.
@@ -70,8 +69,6 @@ class WebhookDelivery extends Model
 
     /**
      * Check if the delivery is pending processing.
-     *
-     * @return bool
      */
     public function isPending(): bool
     {
@@ -80,8 +77,6 @@ class WebhookDelivery extends Model
 
     /**
      * Check if the delivery was successful.
-     *
-     * @return bool
      */
     public function isSuccess(): bool
     {
@@ -90,8 +85,6 @@ class WebhookDelivery extends Model
 
     /**
      * Check if the delivery has failed.
-     *
-     * @return bool
      */
     public function isFailed(): bool
     {
