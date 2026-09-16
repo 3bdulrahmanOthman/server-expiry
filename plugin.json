@@ -2,7 +2,7 @@
     "id": "server-expiry",
     "name": "Server Expiry & Auto-Suspend",
     "author": "Abdulrahman Othman",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "description": "Adds server expiration dates and automated suspension capabilities to Pelican Panel.",
     "category": "plugin",
     "url": "https://github.com/3bdulrahmanOthman/server-expiry",

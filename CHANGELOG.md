@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-16
+
+### Fixed
+- Pelican server IDs are integers, but the plugin contracts required strings
+  under `strict_types`, causing `TypeError` crashes in the admin UI, the
+  client Expiration page, the Application API, and the expiration scheduler.
+  All service/repository/event contracts now accept `int|string`.
+- Repository write operations silently no-opped when the plugin's schema
+  columns were missing (masking incomplete installations). They now log and
+  throw; reads keep a safe fallback while logging the condition. Schema
+  checks are memoized per process.
+- Expiration status UI hardening: the client page's status-color match now
+  handles the `danger` state and includes a `default` fallback (previously an
+  `UnhandledMatchError` for expired/suspended servers); the static status SVG
+  is rendered correctly instead of escaped text; Bootstrap `badge-*` classes
+  replaced with Tailwind-compatible styling.
+- Added missing translation keys (`action_renew`, `action_extend`,
+  `action_clear`, `suspension_label`, `state_suspended`, `state_active`,
+  `none`).
+
+### Changed / Security
+- Client self-service **Renew** and **Set Expiration** actions were removed
+  from the client Expiration page. Expiration changes remain
+  provider/admin-controlled, matching the documented policy. Administrators
+  manage expiration through the admin panel as before.
+
+
 ## [2.0.0] - 2026-09-13
 
 ### Added
