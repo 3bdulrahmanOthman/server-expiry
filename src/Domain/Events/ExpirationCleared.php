@@ -10,11 +10,11 @@ namespace SquadronStrike\ServerExpiry\Domain\Events;
 final class ExpirationCleared extends ExpirationEvent
 {
     /**
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      * @param  \DateTimeImmutable  $occurredOn  When the event occurred
      */
     public function __construct(
-        string $serverId,
+        int|string $serverId,
         \DateTimeImmutable $occurredOn
     ) {
         parent::__construct($serverId, $occurredOn);

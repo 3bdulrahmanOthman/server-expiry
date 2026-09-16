@@ -17,25 +17,25 @@ interface ExpirationRepository
     /**
      * Get the expiration date for a server.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      * @return ExpirationDate The expiration date (may be permanent)
      */
-    public function getExpiration(string $serverId): ExpirationDate;
+    public function getExpiration(int|string $serverId): ExpirationDate;
 
     /**
      * Set the expiration date for a server.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      * @param  ExpirationDate  $expirationDate  The expiration date to set
      */
-    public function setExpiration(string $serverId, ExpirationDate $expirationDate): void;
+    public function setExpiration(int|string $serverId, ExpirationDate $expirationDate): void;
 
     /**
      * Clear the expiration date for a server (make it permanent).
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      */
-    public function clearExpiration(string $serverId): void;
+    public function clearExpiration(int|string $serverId): void;
 
     /**
      * Get the grace period configuration.

@@ -43,7 +43,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Set an expiration date for a server.
      */
-    public function setExpiration(string $serverId, ExpirationDate $expirationDate): void
+    public function setExpiration(int|string $serverId, ExpirationDate $expirationDate): void
     {
         $currentExpiration = $this->repository->getExpiration($serverId);
 
@@ -74,7 +74,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Clear the expiration date for a server (make it permanent).
      */
-    public function clearExpiration(string $serverId): void
+    public function clearExpiration(int|string $serverId): void
     {
         $currentExpiration = $this->repository->getExpiration($serverId);
 
@@ -93,7 +93,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Extend the expiration date for a server by a specified amount.
      */
-    public function extendExpiration(string $serverId, \DateInterval $interval): ExpirationDate
+    public function extendExpiration(int|string $serverId, \DateInterval $interval): ExpirationDate
     {
         $currentExpiration = $this->repository->getExpiration($serverId);
 
@@ -129,7 +129,7 @@ final class ExpirationService implements ExpirationServiceInterface
      *
      * Important: Renewal does not affect manual suspension status.
      */
-    public function renew(string $serverId, ExpirationDate $newExpirationDate): void
+    public function renew(int|string $serverId, ExpirationDate $newExpirationDate): void
     {
         $currentExpiration = $this->repository->getExpiration($serverId);
 
@@ -157,7 +157,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Get the current expiration status of a server.
      */
-    public function getStatus(string $serverId): ExpirationStatus
+    public function getStatus(int|string $serverId): ExpirationStatus
     {
         $expirationDate = $this->repository->getExpiration($serverId);
         $now = new DateTimeImmutable('now');
@@ -188,7 +188,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Get the expiration date for a server.
      */
-    public function getExpiration(string $serverId): ExpirationDate
+    public function getExpiration(int|string $serverId): ExpirationDate
     {
         return $this->repository->getExpiration($serverId);
     }
@@ -196,7 +196,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Check if a server is currently expired.
      */
-    public function isExpired(string $serverId): bool
+    public function isExpired(int|string $serverId): bool
     {
         $expirationDate = $this->repository->getExpiration($serverId);
         $now = new DateTimeImmutable('now');
@@ -207,7 +207,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Check if a server is currently in its grace period.
      */
-    public function isInGracePeriod(string $serverId): bool
+    public function isInGracePeriod(int|string $serverId): bool
     {
         $expirationDate = $this->repository->getExpiration($serverId);
         $now = new DateTimeImmutable('now');
@@ -221,7 +221,7 @@ final class ExpirationService implements ExpirationServiceInterface
     /**
      * Get the remaining time until expiration.
      */
-    public function getRemainingTime(string $serverId): ?\DateInterval
+    public function getRemainingTime(int|string $serverId): ?\DateInterval
     {
         $expirationDate = $this->repository->getExpiration($serverId);
         $now = new DateTimeImmutable('now');
@@ -237,7 +237,7 @@ final class ExpirationService implements ExpirationServiceInterface
      * Note: Actual suspension would be handled by infrastructure layer
      * based on this service's return value and suspension configuration.
      */
-    public function processExpiration(string $serverId): bool
+    public function processExpiration(int|string $serverId): bool
     {
         // Check if auto-suspansion is enabled
         if (! $this->repository->isAutoSuspendEnabled()) {
@@ -278,7 +278,7 @@ final class ExpirationService implements ExpirationServiceInterface
      *
      * Returns the warning threshold that was triggered, or null if none.
      */
-    public function processWarnings(string $serverId): ?int
+    public function processWarnings(int|string $serverId): ?int
     {
         $expirationDate = $this->repository->getExpiration($serverId);
         $now = new DateTimeImmutable('now');

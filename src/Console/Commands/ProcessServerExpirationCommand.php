@@ -290,7 +290,7 @@ class ProcessServerExpirationCommand extends Command
      *
      * @return bool True if claimed, false otherwise
      */
-    private function claimNotification(string $serverId, string $notificationType, string $identifier): bool
+    private function claimNotification(int|string $serverId, string $notificationType, string $identifier): bool
     {
         return DB::transaction(function () use ($serverId, $notificationType, $identifier) {
             try {
@@ -316,7 +316,7 @@ class ProcessServerExpirationCommand extends Command
 
                 // Try to insert a new row (if it doesn't exist)
                 DB::table('notification_idempotency')->insert([
-                    'server_id' => $serverId,
+                    'server_id' => (string) $serverId,
                     'notification_type' => $notificationType,
                     'identifier' => $identifier,
                     'status' => 'processing',
@@ -339,7 +339,7 @@ class ProcessServerExpirationCommand extends Command
     /**
      * Mark a notification as failed (to allow retry).
      */
-    private function markNotificationAsFailed(string $serverId, string $notificationType, string $identifier): void
+    private function markNotificationAsFailed(int|string $serverId, string $notificationType, string $identifier): void
     {
         DB::table('notification_idempotency')
             ->where('server_id', $serverId)

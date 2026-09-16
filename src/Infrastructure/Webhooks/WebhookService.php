@@ -16,10 +16,10 @@ class WebhookService
      * Dispatch a webhook for the given expiration event.
      *
      * @param  string  $eventType  The type of expiration event (e.g., 'server.expiry.updated')
-     * @param  string  $serverId  The ID of the server associated with the event
+     * @param  int|string  $serverId  The ID of the server associated with the event
      * @param  array  $payload  The data payload to send in the webhook
      */
-    public function dispatch(string $eventType, string $serverId, array $payload): void
+    public function dispatch(string $eventType, int|string $serverId, array $payload): void
     {
         // Find all active endpoints subscribed to this event type
         $endpoints = WebhookEndpoint::where('active', true)

@@ -31,13 +31,13 @@ class WebhookDeliveryService
      *
      * @param  WebhookEndpoint  $endpoint  The webhook endpoint configuration
      * @param  string  $eventType  The type of event (e.g., 'server.expiry.updated')
-     * @param  string  $serverId  The ID of the server associated with the event
+     * @param  int|string  $serverId  The ID of the server associated with the event
      * @param  array  $payload  The data payload to send
      */
     public function queueDelivery(
         WebhookEndpoint $endpoint,
         string $eventType,
-        string $serverId,
+        int|string $serverId,
         array $payload
     ): void {
         // Only proceed if the endpoint is active and subscribed to this event type
@@ -49,7 +49,7 @@ class WebhookDeliveryService
         $delivery = WebhookDelivery::create([
             'webhook_endpoint_id' => $endpoint->id,
             'event_type' => $eventType,
-            'server_id' => $serverId,
+            'server_id' => (string) $serverId,
             'payload' => $payload,
             'attempt' => 1,
             'max_attempts' => self::MAX_ATTEMPTS,
