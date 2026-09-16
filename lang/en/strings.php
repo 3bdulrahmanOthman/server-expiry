@@ -52,4 +52,11 @@ return [
     'expiration_details' => 'Expiration Details',
     'suspension_info' => 'Suspension Information',
     'action_set_expiration_tooltip' => 'Set a custom expiration date',
+    'action_renew' => 'Renew',
+    'action_extend' => 'Extend (+30 days)',
+    'action_clear' => 'Clear Expiration',
+    'suspension_label' => 'Suspension State',
+    'state_suspended' => 'Suspended',
+    'state_active' => 'Active',
+    'none' => 'None',
 ];
