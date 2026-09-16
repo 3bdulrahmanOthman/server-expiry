@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace SquadronStrike\ServerExpiry\Infrastructure\Persistence;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use SquadronStrike\ServerExpiry\Application\Contracts\ExpirationRepository;
+use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\ExpirationException;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\GracePeriod;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
@@ -18,16 +20,63 @@ use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
 class EloquentExpirationRepository implements ExpirationRepository
 {
     /**
+     * Per-process memoization of the servers-table column checks. Each
+     * Schema::hasColumn() call hits the information schema otherwise, and
+     * the schema cannot change within a single process lifetime.
+     *
+     * @var array<string, bool>
+     */
+    private static array $columnCache = [];
+
+    /**
+     * Check (memoized) that the servers table has a required column.
+     */
+    private function hasColumn(string $column): bool
+    {
+        return self::$columnCache[$column] ??= Schema::hasTable('servers')
+            && Schema::hasColumn('servers', $column);
+    }
+
+    /**
+     * Guard a write: a missing column must never silently swallow the write
+     * (that masked an incomplete plugin installation in production once).
+     */
+    private function assertColumnForWrite(string $column): void
+    {
+        if (! $this->hasColumn($column)) {
+            Log::error("Server Expiry Plugin: cannot persist expiration data — servers.{$column} is missing. Re-run the plugin migrations.");
+
+            throw new ExpirationException(
+                "Server Expiry schema is incomplete: servers.{$column} does not exist. Please re-run the plugin's migrations."
+            );
+        }
+    }
+
+    /**
+     * Log once per column when a read cannot find it, but keep the safe
+     * permanent/null fallback so UI surfaces stay renderable.
+     */
+    private function logMissingColumnForRead(string $column): void
+    {
+        if (! $this->hasColumn($column) && ! isset(self::$columnCache[$column.'.logged'])) {
+            self::$columnCache[$column.'.logged'] = true;
+            Log::error(
+                "Server Expiry Plugin: servers.{$column} is missing — falling back to permanent. Re-run the plugin migrations."
+            );
+        }
+    }
+
+    /**
      * Get the expiration date for a server.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      * @return ExpirationDate The expiration date (may be permanent)
      */
-    public function getExpiration(string $serverId): ExpirationDate
+    public function getExpiration(int|string $serverId): ExpirationDate
     {
-        // Check if the servers table exists and has the expires_at column
-        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'expires_at')) {
-            // If table/column doesn't exist yet, treat as permanent (backward compatibility)
+        if (! $this->hasColumn('expires_at')) {
+            $this->logMissingColumnForRead('expires_at');
+
             return ExpirationDate::permanent();
         }
 
@@ -48,17 +97,12 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Set the expiration date for a server.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      * @param  ExpirationDate  $expirationDate  The expiration date to set
      */
-    public function setExpiration(string $serverId, ExpirationDate $expirationDate): void
+    public function setExpiration(int|string $serverId, ExpirationDate $expirationDate): void
     {
-        // Check if the servers table exists and has the expires_at column
-        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'expires_at')) {
-            // If table/column doesn't exist yet, we can't persist the data
-            // In a real implementation, we might want to log this or throw an exception
-            return;
-        }
+        $this->assertColumnForWrite('expires_at');
 
         // Update the expires_at value in the servers table
         $dateTime = $expirationDate->getDateTime();
@@ -72,15 +116,11 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Clear the expiration date for a server (make it permanent).
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      */
-    public function clearExpiration(string $serverId): void
+    public function clearExpiration(int|string $serverId): void
     {
-        // Check if the servers table exists and has the expires_at column
-        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'expires_at')) {
-            // If table/column doesn't exist yet, we can't persist the data
-            return;
-        }
+        $this->assertColumnForWrite('expires_at');
 
         // Set expires_at to NULL to make it permanent
         DB::table('servers')
@@ -140,14 +180,14 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Get the suspension reason for a server.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      * @return string|null The suspension reason ('expiration', 'manual') or null if not suspended or reason unknown
      */
-    public function getSuspensionReason(string $serverId): ?string
+    public function getSuspensionReason(int|string $serverId): ?string
     {
-        // Check if the servers table exists and has the suspension_reason column
-        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'suspension_reason')) {
-            // If table/column doesn't exist yet, we cannot determine the reason
+        if (! $this->hasColumn('suspension_reason')) {
+            $this->logMissingColumnForRead('suspension_reason');
+
             return null;
         }
 
@@ -163,15 +203,11 @@ class EloquentExpirationRepository implements ExpirationRepository
      * Set the suspension reason to expiration for a server.
      * This indicates that the server is suspended due to expiration.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      */
-    public function setSuspensionDueToExpiration(string $serverId): void
+    public function setSuspensionDueToExpiration(int|string $serverId): void
     {
-        // Check if the servers table exists and has the suspension_reason column
-        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'suspension_reason')) {
-            // If table/column doesn't exist yet, we cannot persist the data
-            return;
-        }
+        $this->assertColumnForWrite('suspension_reason');
 
         // Update the suspension_reason value in the servers table
         DB::table('servers')
@@ -183,15 +219,11 @@ class EloquentExpirationRepository implements ExpirationRepository
      * Clear the suspension reason for a server.
      * This is used when the server is no longer suspended due to expiration.
      *
-     * @param  string  $serverId  The unique identifier of the server
+     * @param  int|string  $serverId  The unique identifier of the server
      */
-    public function clearSuspensionDueToExpiration(string $serverId): void
+    public function clearSuspensionDueToExpiration(int|string $serverId): void
     {
-        // Check if the servers table exists and has the suspension_reason column
-        if (! Schema::hasTable('servers') || ! Schema::hasColumn('servers', 'suspension_reason')) {
-            // If table/column doesn't exist yet, we cannot persist the data
-            return;
-        }
+        $this->assertColumnForWrite('suspension_reason');
 
         // Set suspension_reason to NULL
         DB::table('servers')
