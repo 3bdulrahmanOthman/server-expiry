@@ -241,8 +241,8 @@ class CustomListServers extends ListServers
                     : 'No')
                 ->toggleable(isToggledHiddenByDefault: true)
                 ->formatStateUsing(fn ($state): string => match ($state) {
-                    'Yes' => '<span class="badge badge-success">Yes</span>',
-                    'No' => '<span class="badge badge-danger">No</span>',
+                    'Yes' => '<span class="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-600">Yes</span>',
+                    'No' => '<span class="inline-flex items-center rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-600">No</span>',
                 })
                 ->html(),
         ]);
