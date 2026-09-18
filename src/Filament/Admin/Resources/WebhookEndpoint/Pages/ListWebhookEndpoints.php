@@ -15,8 +15,13 @@ class ListWebhookEndpoints extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        // Route the Plus button to the dedicated create page. Filament v5's
+        // CreateAction otherwise opens a slide-over modal whose footer submit
+        // proved unreliable in production panel builds; the page flow pins its
+        // own Create/Cancel actions instead.
         return [
-            CreateAction::make(),
+            CreateAction::make()
+                ->url(WebhookEndpointResource::getUrl('create')),
         ];
     }
 

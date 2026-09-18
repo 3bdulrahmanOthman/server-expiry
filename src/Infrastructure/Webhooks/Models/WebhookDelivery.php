@@ -21,6 +21,18 @@ class WebhookDelivery extends Model
     protected $table = 'webhook_deliveries';
 
     /**
+     * Migration 005 creates this table WITHOUT created_at/updated_at columns
+     * (timing is tracked by the explicit queued_at/processed_at/
+     * next_attempt_at columns). Leaving Eloquent timestamps enabled made
+     * every INSERT/UPDATE emit those nonexistent columns and fail with
+     * "Unknown column 'updated_at'" — no webhook delivery could ever be
+     * recorded (H6.3 E2E runtime finding).
+     *
+     * @var bool
+     */
+    public $timestamps = false;
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>

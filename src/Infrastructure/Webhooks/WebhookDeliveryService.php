@@ -17,14 +17,29 @@ use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookEndpoint;
 class WebhookDeliveryService
 {
     /**
-     * Maximum number of retry attempts for failed deliveries.
+     * Maximum attempts per delivery (config: webhook_max_attempts).
      */
-    private const MAX_ATTEMPTS = 3;
+    private function maxAttempts(): int
+    {
+        return max(1, (int) config('server-expiry.webhook_max_attempts', 3));
+    }
 
     /**
-     * Base delay in seconds for exponential backoff.
+     * HTTP timeout per delivery request, in seconds (config: webhook_timeout_seconds).
      */
-    private const BASE_DELAY_SECONDS = 1;
+    private function timeoutSeconds(): int
+    {
+        return max(1, (int) config('server-expiry.webhook_timeout_seconds', 10));
+    }
+
+    /**
+     * Base delay for the exponential retry backoff, in seconds
+     * (config: webhook_backoff_base_seconds).
+     */
+    private function backoffBaseSeconds(): int
+    {
+        return max(1, (int) config('server-expiry.webhook_backoff_base_seconds', 1));
+    }
 
     /**
      * Queue a webhook delivery for processing.
@@ -52,7 +67,7 @@ class WebhookDeliveryService
             'server_id' => (string) $serverId,
             'payload' => $payload,
             'attempt' => 1,
-            'max_attempts' => self::MAX_ATTEMPTS,
+            'max_attempts' => $this->maxAttempts(),
             'status' => 'pending',
             'queued_at' => now(),
             'next_attempt_at' => now(), // Process immediately
@@ -108,7 +123,7 @@ class WebhookDeliveryService
             ];
 
             // Make the HTTP request
-            $response = Http::timeout(10)
+            $response = Http::timeout($this->timeoutSeconds())
                 ->withHeaders($headers)
                 ->post($endpoint->url, $jsonPayload);
 
@@ -152,7 +167,7 @@ class WebhookDeliveryService
         // Check if we should retry
         if ($attempt < $maxAttempts) {
             // Calculate delay with exponential backoff
-            $delaySeconds = self::BASE_DELAY_SECONDS * (2 ** ($attempt - 1));
+            $delaySeconds = $this->backoffBaseSeconds() * (2 ** ($attempt - 1));
             $nextAttemptAt = now()->addSeconds($delaySeconds);
 
             $delivery->update([

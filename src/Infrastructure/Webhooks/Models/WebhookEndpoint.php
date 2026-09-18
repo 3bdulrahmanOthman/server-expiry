@@ -49,6 +49,21 @@ class WebhookEndpoint extends Model
     ];
 
     /**
+     * A missing secret would make deliveries sign with an empty key — i.e.
+     * unsigned webhooks. Generate one whenever an endpoint is created without
+     * a secret; editing an endpoint never touches a stored secret (the form
+     * only dehydrates the field when filled).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $endpoint): void {
+            if (blank($endpoint->secret_key)) {
+                $endpoint->secret_key = bin2hex(random_bytes(24));
+            }
+        });
+    }
+
+    /**
      * Get the deliveries for this endpoint.
      */
     public function deliveries(): HasMany
