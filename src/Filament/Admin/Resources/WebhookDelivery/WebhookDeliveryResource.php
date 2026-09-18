@@ -22,6 +22,11 @@ class WebhookDeliveryResource extends Resource
 {
     protected static ?string $model = WebhookDelivery::class;
 
+    // Two-segment slug keeps the resource under the Server Expiry route
+    // hierarchy (/admin/server-expiry/webhook-deliveries); the default
+    // derivation would echo the WebhookDelivery sub-namespace instead.
+    protected static ?string $slug = 'server-expiry/webhook-deliveries';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-arrow-down';
 
     protected static string|UnitEnum|null $navigationGroup = 'Server Expiry';

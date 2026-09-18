@@ -25,3 +25,13 @@ yarn.lock
 .phpunit.cache/
 # Local test tooling (PHPUnit phar)
 /tools/
+
+# Local-only artifacts — never commit, never package (H7.3)
+# .mcp.json holds a live provider API key.
+/.mcp.json
+/fe
+/database/migrations_recovery/
+# Agent execution/planning artifacts (session checkpoints, not release docs)
+/tasks/
+# Root-level generated screenshots (local QA artifacts)
+/expiry-*.png

@@ -224,28 +224,73 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
     public function getSettingsForm(): array
     {
         return [
-            Toggle::make('auto_suspend_enabled')
-                ->label(trans('server-expiry::strings.settings_auto_suspend_label'))
-                ->helperText(trans('server-expiry::strings.settings_auto_suspend_helper'))
-                ->inline(false)
-                ->default(fn () => config('server-expiry.auto_suspend_enabled')),
-            TextInput::make('grace_period_hours')
-                ->label(trans('server-expiry::strings.settings_grace_label'))
-                ->helperText(trans('server-expiry::strings.settings_grace_helper'))
-                ->numeric()
-                ->minValue(0)
-                ->default(fn () => config('server-expiry.grace_period_hours')),
-            TextInput::make('warning_days_notice')
-                ->label(trans('server-expiry::strings.settings_warning_label'))
-                ->helperText(trans('server-expiry::strings.settings_warning_helper'))
-                ->placeholder('7,3,1')
-                ->rules(['regex:/^\s*\d+\s*(,\s*\d+\s*)*$/'])
-                ->default(fn () => implode(',', config('server-expiry.warning_days_notice'))),
-            Toggle::make('notify_owner_on_suspend')
-                ->label(trans('server-expiry::strings.settings_notify_label'))
-                ->helperText(trans('server-expiry::strings.settings_notify_helper'))
-                ->inline(false)
-                ->default(fn () => config('server-expiry.notify_owner_on_suspend')),
+            Section::make(trans('server-expiry::strings.settings_section_lifecycle'))
+                ->description(trans('server-expiry::strings.settings_section_lifecycle_helper'))
+                ->schema([
+                    Toggle::make('auto_suspend_enabled')
+                        ->label(trans('server-expiry::strings.settings_auto_suspend_label'))
+                        ->helperText(trans('server-expiry::strings.settings_auto_suspend_helper'))
+                        ->inline(false)
+                        ->default(fn () => config('server-expiry.auto_suspend_enabled')),
+                    TextInput::make('grace_period_hours')
+                        ->label(trans('server-expiry::strings.settings_grace_label'))
+                        ->helperText(trans('server-expiry::strings.settings_grace_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->default(fn () => config('server-expiry.grace_period_hours')),
+                    TextInput::make('warning_days_notice')
+                        ->label(trans('server-expiry::strings.settings_warning_label'))
+                        ->helperText(trans('server-expiry::strings.settings_warning_helper'))
+                        ->placeholder('7,3,1')
+                        ->rules(['regex:/^\s*\d+\s*(,\s*\d+\s*)*$/'])
+                        ->default(fn () => implode(',', config('server-expiry.warning_days_notice'))),
+                    Toggle::make('notify_owner_on_suspend')
+                        ->label(trans('server-expiry::strings.settings_notify_label'))
+                        ->helperText(trans('server-expiry::strings.settings_notify_helper'))
+                        ->inline(false)
+                        ->default(fn () => config('server-expiry.notify_owner_on_suspend')),
+                ])
+                ->columns(2),
+
+            Section::make(trans('server-expiry::strings.settings_section_webhooks'))
+                ->description(trans('server-expiry::strings.settings_section_webhooks_helper'))
+                ->schema([
+                    TextInput::make('webhook_max_attempts')
+                        ->label(trans('server-expiry::strings.settings_webhook_max_attempts_label'))
+                        ->helperText(trans('server-expiry::strings.settings_webhook_max_attempts_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(10)
+                        ->default(fn () => config('server-expiry.webhook_max_attempts', 3)),
+                    TextInput::make('webhook_timeout_seconds')
+                        ->label(trans('server-expiry::strings.settings_webhook_timeout_label'))
+                        ->helperText(trans('server-expiry::strings.settings_webhook_timeout_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(120)
+                        ->default(fn () => config('server-expiry.webhook_timeout_seconds', 10)),
+                    TextInput::make('webhook_backoff_base_seconds')
+                        ->label(trans('server-expiry::strings.settings_webhook_backoff_label'))
+                        ->helperText(trans('server-expiry::strings.settings_webhook_backoff_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(3600)
+                        ->default(fn () => config('server-expiry.webhook_backoff_base_seconds', 1)),
+                ])
+                ->columns(3),
+
+            Section::make(trans('server-expiry::strings.settings_section_owner_page'))
+                ->description(trans('server-expiry::strings.settings_section_owner_page_helper'))
+                ->schema([
+                    TextInput::make('support_url')
+                        ->label(trans('server-expiry::strings.settings_support_url_label'))
+                        ->helperText(trans('server-expiry::strings.settings_support_url_helper'))
+                        ->url()
+                        ->nullable()
+                        ->maxLength(2048)
+                        ->default(fn () => config('server-expiry.support_url', '')),
+                ])
+                ->columns(1),
         ];
     }
 
@@ -256,6 +301,10 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
             'SERVER_EXPIRY_GRACE_HOURS' => (int) $data['grace_period_hours'],
             'SERVER_EXPIRY_WARNING_DAYS' => $data['warning_days_notice'],
             'SERVER_EXPIRY_NOTIFY_ON_SUSPEND' => $data['notify_owner_on_suspend'],
+            'SERVER_EXPIRY_WEBHOOK_MAX_ATTEMPTS' => (int) $data['webhook_max_attempts'],
+            'SERVER_EXPIRY_WEBHOOK_TIMEOUT' => (int) $data['webhook_timeout_seconds'],
+            'SERVER_EXPIRY_WEBHOOK_BACKOFF_BASE' => (int) $data['webhook_backoff_base_seconds'],
+            'SERVER_EXPIRY_SUPPORT_URL' => $data['support_url'] ?? '',
         ]);
 
         Notification::make()

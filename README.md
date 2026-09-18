@@ -49,7 +49,9 @@ Plugin settings in the admin panel, under Admin Area → Plugins → Settings:
   warning **and** on suspension.
 - **Grace period** — extra hours granted after expiration before suspension.
 - **Settings page** — a Settings action on the plugin row in Admin Area → Plugins
-  (`.env`-driven): auto-suspend toggle, grace period, warning days, owner notification.
+  (`.env`-driven): auto-suspend toggle, grace period, warning days, owner
+  notification, webhook delivery tuning (attempts / timeout / backoff), and the
+  owner-facing support contact URL.
 - **Webhooks** — register HTTP endpoints (Admin Area → "Server Expiry" → Webhook
   Endpoints) that receive signed (HMAC-SHA256) JSON notifications for expiration
   lifecycle events, with per-endpoint event subscription and delivery tracking
@@ -81,7 +83,7 @@ Plugin settings in the admin panel, under Admin Area → Plugins → Settings:
 
 ## Requirements
 
-- [Pelican Panel](https://pelican.dev/) — v2.0.0 is developed and verified
+- [Pelican Panel](https://pelican.dev/) — v2.1.0 is developed and verified
   against **Pelican v1.0.0-beta38** (Filament v5). Behavior on other panel
   versions is untested.
 - PHP 8.2+ and MySQL/MariaDB
@@ -127,6 +129,10 @@ SERVER_EXPIRY_AUTO_SUSPEND=true        # master switch for auto-suspension
 SERVER_EXPIRY_GRACE_HOURS=0            # hours after expiry before suspension
 SERVER_EXPIRY_WARNING_DAYS=7,3,1       # warning thresholds (days before expiry)
 SERVER_EXPIRY_NOTIFY_ON_SUSPEND=true   # send mail + panel notification on suspend
+SERVER_EXPIRY_WEBHOOK_MAX_ATTEMPTS=3   # attempts per webhook delivery
+SERVER_EXPIRY_WEBHOOK_TIMEOUT=10       # HTTP timeout per webhook request (seconds)
+SERVER_EXPIRY_WEBHOOK_BACKOFF_BASE=1   # base delay for retry backoff (seconds)
+SERVER_EXPIRY_SUPPORT_URL=             # support/renewal contact URL shown to owners (empty = hidden)
 ```
 
 Full defaults live in `config/server-expiry.php`:
@@ -137,6 +143,15 @@ Full defaults live in `config/server-expiry.php`:
 | `grace_period_hours` | `SERVER_EXPIRY_GRACE_HOURS` | `0` | Grace period in hours before suspension |
 | `warning_days_notice` | `SERVER_EXPIRY_WARNING_DAYS` | `7,3,1` | Warning thresholds in days before expiry |
 | `notify_owner_on_suspend` | `SERVER_EXPIRY_NOTIFY_ON_SUSPEND` | `true` | Send mail + database notification to the owner |
+| `webhook_max_attempts` | `SERVER_EXPIRY_WEBHOOK_MAX_ATTEMPTS` | `3` | Attempts per webhook delivery before permanent failure |
+| `webhook_timeout_seconds` | `SERVER_EXPIRY_WEBHOOK_TIMEOUT` | `10` | HTTP timeout per webhook request |
+| `webhook_backoff_base_seconds` | `SERVER_EXPIRY_WEBHOOK_BACKOFF_BASE` | `1` | Base delay for exponential retry backoff |
+| `support_url` | `SERVER_EXPIRY_SUPPORT_URL` | *(empty)* | Support/renewal contact target shown to server owners; empty hides the Contact Support action |
+
+Failed webhook deliveries are re-attempted automatically by the scheduler
+(`pelican:process-webhook-deliveries`, every minute) using the configured
+attempts and backoff; the manual Retry action in the deliveries table remains
+available.
 
 ## API
 
@@ -157,21 +172,45 @@ ACL on the `server` resource):
 ## Webhooks
 
 Webhook endpoints are managed in Admin Area → "Server Expiry" (Webhook
-Endpoints / Deliveries). Each endpoint subscribes to a subset of:
+Endpoints / Deliveries, at `/admin/server-expiry/webhook-endpoints` and
+`/admin/server-expiry/webhook-deliveries`). Each endpoint subscribes to a
+subset of:
 
 `server.expiry.created`, `server.expiry.updated`, `server.expiry.warning`,
 `server.expiry.expired`, `server.expiry.suspended`, `server.expiry.renewed`,
 `server.expiry.cleared`
 
-Deliveries POST JSON with `X-Signature` = HMAC-SHA256 of
-`<raw-body><X-Timestamp>` keyed by the endpoint secret, plus `X-Timestamp`,
-`X-Webhook-ID` and `Content-Type: application/json`. Failed deliveries are
-recorded with their HTTP status and can be retried from the Deliveries table
-(automatic scheduled retries are a known gap — see Limitations). Endpoint
+A random secret is generated for every new endpoint that is saved without one
+(editing an endpoint never changes its stored secret). Endpoints created
+before v2.1.0 without a secret have none stored, and their deliveries remain
+unsigned until you edit the endpoint and set a secret. Deliveries POST JSON
+with `X-Signature` = HMAC-SHA256 of `<raw-body><X-Timestamp>` keyed by the
+endpoint secret, plus `X-Timestamp`, `X-Webhook-ID` and
+`Content-Type: application/json`. Failed deliveries are recorded with their
+HTTP status and retried automatically by the scheduler (see Configuration);
+the manual Retry action in the deliveries table remains available. Endpoint
 URLs may not point at private, reserved or link-local addresses (SSRF
 protection, validated at save time).
 
-## Upgrade path (v1.2.0 → v2.0.0)
+## Upgrade path
+
+### v2.0.x → v2.1.0
+
+- Install over the existing `plugins/server-expiry/` folder and run the
+  panel's plugin update/import; **no database migrations ship in 2.1.0**.
+- **Webhook admin URLs changed** (see the upgrade notes in `CHANGELOG.md`):
+  update any bookmarks/links from
+  `/admin/webhook-endpoint/webhook-endpoints` and
+  `/admin/webhook-delivery/webhook-deliveries` to
+  `/admin/server-expiry/webhook-endpoints` and
+  `/admin/server-expiry/webhook-deliveries`. Webhook receivers and the
+  Application API are unaffected.
+- New settings are additive with safe defaults: webhook delivery tuning and
+  the owner-facing `SERVER_EXPIRY_SUPPORT_URL` (Contact Support CTA; hidden
+  when empty). The owner Expiration page remains at
+  `/server/{server}/expiry-settings` and is read-only.
+
+### v1.2.0 → v2.0.0
 
 - Install the new release over the existing `plugins/server-expiry/` folder and
   run the panel's plugin update/import; migrations `003`–`008` run
@@ -188,15 +227,17 @@ protection, validated at save time).
 
 ## Known limitations
 
-- Webhook **manual retry** works from the admin UI; the scheduled automatic
-  retry pass (`processPendingDeliveries`) exists but is not yet wired to the
-  scheduler.
 - Webhook destination URLs are validated against private/reserved ranges at
   save time; DNS-rebinding between validation and delivery is not mitigated.
+- On stock panels, Pelican blocks owner access to suspended servers entirely
+  (server-conflict gate), so owners typically cannot reach the Expiration page
+  while suspended; the page's Suspended presentation is implemented and
+  verified but its reachability is governed by the panel.
 - The Application API is root-admin-only (panel convention); there are no
   subuser-level expiration permissions yet.
 - Expiration-related Filament/API/webhook behavior is unit-tested at the
-  domain level only; full Pelican-runtime integration testing is planned
+  domain and source-contract level, plus targeted runtime verification;
+  full Pelican-runtime integration testing is planned
   (see docs/DATABASE_CHANGES.md § R12 follow-ups).
 
 ## Development

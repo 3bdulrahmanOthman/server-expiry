@@ -19,6 +19,11 @@ class WebhookEndpointResource extends Resource
 {
     protected static ?string $model = WebhookEndpoint::class;
 
+    // Two-segment slug keeps the resource under the Server Expiry route
+    // hierarchy (/admin/server-expiry/webhook-endpoints); the default
+    // derivation would echo the WebhookEndpoint sub-namespace instead.
+    protected static ?string $slug = 'server-expiry/webhook-endpoints';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     protected static string|UnitEnum|null $navigationGroup = 'Server Expiry';

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use SquadronStrike\ServerExpiry\Console\Commands\ProcessServerExpirationCommand;
+use SquadronStrike\ServerExpiry\Console\Commands\ProcessWebhookDeliveriesCommand;
 use SquadronStrike\ServerExpiry\Support\Expiry;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 
@@ -33,6 +34,12 @@ class ServerExpiryServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schedule::command(ProcessServerExpirationCommand::class)
+            ->everyMinute()
+            ->withoutOverlapping();
+
+        // Retry failed webhook deliveries with exponential backoff. Idempotent:
+        // only deliveries whose next_attempt_at is due are attempted.
+        Schedule::command(ProcessWebhookDeliveriesCommand::class)
             ->everyMinute()
             ->withoutOverlapping();
 
@@ -85,7 +92,15 @@ class ServerExpiryServiceProvider extends ServiceProvider
             // Import ServerState here to avoid top-level use if not needed.
             $suspendedValue = \App\Enums\ServerState::Suspended->value;
 
-            if ($newStatus === $suspendedValue && $originalStatus !== $suspendedValue) {
+            // `status` is cast to the ServerState enum, so live values arrive as
+            // enum instances while raw originals may still be plain strings —
+            // normalize both before comparing, otherwise the strict string
+            // comparisons below never match and the reason stamping/clearing
+            // silently never runs (H6.1 runtime finding).
+            $newStatusValue = $newStatus instanceof \App\Enums\ServerState ? $newStatus->value : $newStatus;
+            $originalStatusValue = $originalStatus instanceof \App\Enums\ServerState ? $originalStatus->value : $originalStatus;
+
+            if ($newStatusValue === $suspendedValue && $originalStatusValue !== $suspendedValue) {
                 // Status is changing to suspended.
                 if (SuspensionContext::isExpirationSuspensionInProgress()) {
                     $server->suspension_reason = 'expiration';
@@ -98,7 +113,7 @@ class ServerExpiryServiceProvider extends ServiceProvider
             }
 
             // Determine if status is changing from suspended to not suspended.
-            if ($originalStatus === $suspendedValue && $newStatus !== $suspendedValue) {
+            if ($originalStatusValue === $suspendedValue && $newStatusValue !== $suspendedValue) {
                 // Server is being unsuspended.
                 $server->suspension_reason = null;
             }

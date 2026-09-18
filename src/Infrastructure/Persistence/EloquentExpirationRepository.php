@@ -135,7 +135,11 @@ class EloquentExpirationRepository implements ExpirationRepository
      */
     public function getGracePeriod(): GracePeriod
     {
-        $hours = config('server-expiry.grace_period_hours', 0);
+        // env()-backed config values arrive as strings (SERVER_EXPIRY_GRACE_HOURS=48
+        // reads as "48" — only true/false/null are special-cased by env()), so the
+        // infrastructure boundary normalizes to int before the strict domain
+        // contract, mirroring the intval normalization of warning_days_notice.
+        $hours = (int) config('server-expiry.grace_period_hours', 0);
 
         return GracePeriod::fromHours($hours);
     }

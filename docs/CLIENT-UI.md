@@ -1,206 +1,170 @@
-# Client UI - Server Expiry & Auto-Suspend Plugin
+# Client UI — Owner Expiration Page (v2.1)
 
 ## Overview
 
-This document describes the client-facing expiration UI for the Server Expiry & Auto-Suspend plugin. The client UI provides server owners with visibility into their server's expiration status and allows them to perform authorized actions such as renewal.
+The Server Expiry & Auto-Suspend plugin gives every server owner a dedicated
+**Expiration** page in the server panel sidebar. Since v2.1 the page is a
+read-only status dashboard: it presents the server's real expiration state —
+computed from the same domain service and server record the admin tab uses —
+and **provides no self-service actions**.
 
-## Design Principles
+> **v2.1 does not provide self-service renewal, self-service expiration
+> changes, payments, invoices, renewal packages, pricing, SLA/hardware
+> information, emergency services, or a lifecycle event log.** Expiration
+> changes are provider/admin-controlled (Edit Server → Expiration in the
+> admin panel, or the Application API). The only owner-facing call to action
+> is the optional Contact Support link described below.
 
-1. **Information Transparency**: Clients can see all relevant expiration information about their servers
-2. **Authorization Enforcement**: Administrative actions require proper authorization
-3. **Safety First**: Renewal actions respect the manual vs expiration suspension distinction
-4. **Clean Presentation**: Information is presented in a clear, visually intuitive format
-5. **Backward Compatibility**: Existing v1.2.0 client functionality is preserved
+## Route and access
 
-## Components
+- **Route:** `/server/{server}/expiry-settings` (unchanged since v1.2.0),
+  registered on the server panel via plugin page discovery.
+- **Navigation:** "Expiration" item in the server sidebar, with a calendar
+  icon.
+- **Access:** the page is a Pelican `ServerFormPage` for the tenant server,
+  so standard server-panel tenancy and authorization apply. The page exposes
+  **no header actions**; clients cannot modify any expiration state from it.
 
-### Expiry Settings Page (`resources/views/filament/server/pages/expiry-settings.blade.php`)
+## Page structure
 
-The client expiration page is accessed via the server panel sidebar and shows:
+The page renders, top to bottom:
 
-#### Status Section
-- Visual status indicator with color-coded icon:
-  - Gray: Permanent (no expiration)
-  - Green: Active (valid expiration date)
-  - Yellow: Expiring soon (within warning period)
-  - Red: Expired (past expiration date)
-- Text status description
+1. **Header** — page title and a short description of what the page shows.
+2. **Status hero** — a state-specific banner (icon, colored status pill, and a
+   one-sentence status explanation; see the state matrix below).
+3. **Countdown** (when applicable) — a live days / hours / minutes / seconds
+   display (see "Countdown behavior").
+4. **Lifecycle timeline** (when applicable) — a horizontal track marking the
+   configured warning thresholds, the expiration moment, and (when a grace
+   period is configured) the real auto-suspension moment, with a "now"
+   indicator positioned between them (see "Timeline behavior").
+5. **Status summary cards** — Status, Expiration date & time, Time remaining,
+   and the warning schedule ("the owner is notified 7, 3, 1 day(s) before
+   expiration"), each derived from real configuration.
+6. **Suspension banner** (suspended servers only) — a danger banner stating
+   the suspension reason in plain language.
+7. **Support section** (only when `support_url` is configured) — a "Need more
+   time?" block with a **Contact Support** button.
 
-#### Expiration Details Section
-- Expiration date and time (or "Permanent" if never set)
-- Time remaining until expiration (human-readable format)
-- Expired status badge (Yes/No with color coding)
-- Grace period status badge (Yes/No with color coding)
+## State matrix
 
-#### Suspension Information Section (Conditional)
-- Visible only when server is suspended
-- Shows suspension status (Suspended/Not Suspended)
-- Shows suspension reason when applicable (expiration, manual, other)
+The page presents exactly six states. All of them are driven by the backend
+(`ExpirationService` + the server record); nothing is inferred in the view.
 
-## Actions
+| State | Hero presentation | Expiry date shown | Countdown | Timeline |
+| --- | --- | --- | --- | --- |
+| **Permanent** | `∞ Permanent` badge, green treatment with a subtle green ambient glow (the glow is exclusive to this state), active indicator | No — "No expiration date set" copy; **no** fabricated date/progress | None | None |
+| **Active** | Neutral/green pill, "Active until &lt;date&gt;" | Yes (exact date & time) | Expiry countdown | None |
+| **Expiring Soon** | Amber warning pill, "Expiring soon on &lt;date&gt;" | Yes | Expiry countdown | Yes |
+| **Expired** | Red pill, "This server expired at &lt;date&gt;" | Yes | None — elapsed time instead ("Expired 3d 0h") | Yes (now indicator clamped at the end) |
+| **Grace Period** | Amber hourglass pill, "In grace period until &lt;auto-suspension moment&gt;" | Yes (in the cards) | **Auto-suspension countdown** — targets the real moment (`expires_at` + configured grace hours), not the expiry itself | Yes |
+| **Suspended** | Red pill, "This server is currently suspended." | Yes (in the cards) | None | None |
 
-Clients can perform the following actions if authorized:
+The warning window (and therefore the Expiring Soon state) begins at the
+**largest** configured warning threshold before `expires_at` (default 7 days).
+Warning thresholds, the grace window and the suspension gate are the admin's
+plugin settings; the page never invents dates, milestones or progress.
 
-### Renew Server
-- Sets a new expiration date 30 days from now (or extends current expiration by 30 days)
-- Only available to authorized users
-- Shows confirmation dialog before execution
-- Respects suspension safety:
-  - Does NOT auto-unsuspend manually suspended servers
-  - DOES auto-unsuspend expiration-suspended servers upon renewal
-- Requires Gate::authorize('renew', $server) check
+### Suspension reasons
 
-### Set Expiration
-- Allows setting a custom expiration date
-- Only available to authorized users
-- Uses DateTimePicker with future-only validation (after_or_equal:today)
-- Shows confirmation dialog before execution
-- Respects suspension safety (same as renewal)
-- Requires Gate::authorize('renew', $server) check
+When a server is suspended, the banner explains why:
 
-## Authorization
+- `suspension_reason = expiration` → "This server was suspended automatically
+  because its expiration date passed."
+- `suspension_reason = manual` → "This server was suspended manually by your
+  provider."
+- any other value → a neutral "This server is currently suspended."
 
-All client actions are protected by Laravel Gate authorization checks:
+> **Note on stock panels:** Pelican itself blocks owner access to suspended
+> servers (the "server conflict" gate), so on an unmodified panel owners
+> typically cannot reach this page while the server is suspended. The
+> Suspended presentation above is implemented and verified; whether owners can
+> see it depends on the panel's conflict-blocking behavior.
 
-```php
-if (! Gate::authorize('renew', $record)) {
-    Notification::make()
-        ->danger()
-        ->body('You are not authorized to perform this action.')
-        ->send();
-    return;
-}
-```
+## Countdown behavior
 
-The 'renew' gate should be defined in the application's AuthServiceProvider to determine if a user can perform expiration-related actions on a given server.
+- **Active / Expiring Soon:** counts down to the expiration moment.
+- **Grace Period:** counts down to the real automatic-suspension moment
+  (`expires_at` + configured grace hours). The label reads "Automatic
+  suspension in". If auto-suspend is disabled, no grace countdown is shown —
+  nothing will suspend the server automatically.
+- The ticker is **display-only** (Alpine.js): it starts from the
+  server-rendered values and never crosses zero. A page reload re-syncs it
+  with the authoritative backend state.
+- **Permanent** servers have no countdown at all — by design, not by omission.
 
-## Safety Features
+## Timeline behavior
 
-### Suspension Safety Invariant
-The implementation maintains the critical distinction between manual and expiration suspensions:
-- Manual suspensions are preserved during renewal (server remains suspended)
-- Expiration suspensions are cleared during renewal (server can be auto-unsuspended)
+For Expiring Soon, Grace Period and Expired servers the page renders a
+lifecycle timeline built only from real configuration:
 
-### Validation
-- All expiration dates are validated to be in the future or today (after_or_equal:today)
-- Form inputs are protected against invalid data
-- Authorization checks prevent unauthorized modifications
+- one marker per configured warning threshold (e.g. 7 / 3 / 1 days), plus the
+  expiration moment, plus the auto-suspension moment when a grace period is
+  configured;
+- a "now" indicator at the true relative position, clamped to the track ends
+  once elapsed;
+- if no warning thresholds are configured, the timeline is hidden entirely.
 
-## User Experience
+Permanent and Active servers show no timeline.
 
-### Visual Indicators
-- Color-coded status icons provide immediate visual feedback
-- Badges use semantic colors (green=good, yellow=warning, red=danger)
-- Tooltips provide additional context for actions
-- Confirmation dialogs prevent accidental actions
+## Support-only CTA
 
-### Information Hierarchy
-- Most critical information (status) is presented first
-- Detailed expiration information follows
-- Conditional suspension information appears only when relevant
-- Actions are available in the page header for easy access
+The `support_url` plugin setting (Admin Area → Plugins → Server Expiry →
+Settings → "Owner Expiration Page") controls the only call to action:
 
-## Backward Compatibility
+- **`support_url` set** → a "Need more time?" section with a **Contact
+  Support** button. The link opens in a new tab
+  (`target="_blank" rel="noopener noreferrer"`) and points exactly at the
+  configured URL.
+- **`support_url` empty (default)** → the whole support section is hidden.
 
-### Preserved v1.2.0 Functionality
-- The expiration information display maintains all data previously shown
-- URL route remains unchanged (`/server/{id}/expiry-settings`)
-- Navigation label and icon are preserved
-- Basic expiration status and date information is still available
+There is deliberately no "Renew" or "Extend" action anywhere on the page:
+renewal is a provider conversation, not a client action.
 
-### Enhanced Features
-- Visual status indicators replace text-only status
-- Time remaining information added
-- Expiration and grace period status badges added
-- Renewal capability added (when authorized)
-- Custom expiration setting capability added (when authorized)
-- Conditional suspension information section added
+## Visual behavior
 
-## Implementation Notes
+- **Dark and light mode:** the page follows the panel theme (Filament's
+  `html.dark` convention) with dedicated token sets for both.
+- **Responsive:** desktop layout (hero, countdown, cards) stacks cleanly on
+  mobile widths; no horizontal overflow at 390 px.
+- **Motion:** the Permanent glow and countdown use subtle animation and are
+  disabled for users with `prefers-reduced-motion`.
+- The Permanent green glow is applied **only** to the Permanent hero — never
+  to any other state.
 
-### Separation of Concerns
-- UI layer presents data and captures user intentions
-- Authorization is handled via Laravel Gates
-- Business logic is delegated to application services:
-  - `ExpirationService::renew()`
-  - `ExpirationService::setExpiration()`
-  - `ExpirationService::isInGracePeriod()`
-  - `ExpirationService::isNotifyOwnerOnSuspendEnabled()`
+## Implementation notes
 
-### Performance Considerations
-- Since this page displays information for a single server only, N+1 queries are not a concern
-- All data retrieval is optimized for single-server access
-- No unnecessary relationships are loaded
+- The page is presentation-only: `ExpirySettingsPage::getViewData()` hands the
+  Blade view a precomputed view model (`SquadronStrike\ServerExpiry\Application\DTOs\ExpirationView`)
+  built from `ExpirationService` and the tenant `Server` record. The Blade
+  template contains no business logic and assigns no local variables (this
+  stack's Blade does not compile the single-expression `@php(...)` form, and
+  Livewire renders conditional regions in separate fragment scopes — only real
+  view data reaches them).
+- All styles are scoped under the `se-expiry-` class prefix inside an
+  `@once` block, so the plugin cannot leak CSS into the rest of the panel.
+- All copy is translatable via `lang/en/strings.php`
+  (`server-expiry::strings.*`).
 
-### Extensibility
-- The page follows Filament conventions for easy customization
-- New sections can be added to the schema array
-- Additional actions can be added to the header actions
-- Translation keys are centrally managed in lang/en/strings.php
+## Testing
 
-## Testing Considerations
-
-### Unit Tests
-- Test authorization gate integration
-- Test visibility logic for suspension section
-- Test action button conditions
-- Test form validation rules
-
-### Feature Tests
-- Test page load displays correct expiration information
-- Test renewal action with proper authorization
-- Test renewal action prevents unauthorized access
-- Test suspension section visibility based on server state
-- Test visual status indicators match expiration state
+The implementation is covered by source-contract tests that pin the owner
+experience (`tests/UI/OwnerExpirationUiTest.php`,
+`tests/UI/ClientPageRegressionTest.php`,
+`tests/UI/OwnerPageSchemaBindingTest.php`): the six-state mapping, the
+Permanent-only glow, the absence of permanent countdown/timeline, the
+conditional support CTA, the absence of any renewal/self-service actions or
+fabricated commerce modules, raw-SVG icon rendering, view-data delivery of the
+view model, and translation-key completeness. The full state matrix (all six
+states, all three suspension reasons, both support-CTA variants, dark/light,
+desktop/mobile, countdown tick and reload re-sync) was additionally verified
+at runtime against a real panel.
 
 ## Security
 
-### Authorization Enforcement
-- All mutating actions require explicit authorization
-- No sensitive data is exposed without proper authorization
-- Authorization checks occur before any business logic execution
-
-### Input Validation
-- All form inputs are validated (future-only dates)
-- CSRF protection is inherited from Filament/Laravel
-- Input sanitization prevents XSS in displayed content
-
-### Data Protection
-- No expiration secrets or sensitive data are displayed
-- Server IDs are not exposed in URLs beyond standard routing
-- All actions use proper model binding to prevent IDOR
-
-## Localization
-
-All user-facing text is translatable via Laravel's localization system:
-- Translation keys are defined in `lang/en/strings.php`
-- Keys follow the pattern: `server-expiry::strings.key`
-- Example usage: `trans('server-expiry::strings.action_renew')`
-
-## Diagram
-
-```
-Client Expiration Page Layout
-+--------------------------------------------------+
-| [Status Icon]     Status: [Text Description]     |
-+--------------------------------------------------+
-| Expiration Date: [Date/Time or Permanent]        |
-| Time Remaining: [Human readable time]            |
-| [Expired:  Yes/No badge]  [Grace Period: Yes/No] |
-+--------------------------------------------------+
-| [IF SUSPENDED]                                   |
-| Suspension Status: [Suspended/Not Suspended]     |
-| [IF Reason Available] Suspension Reason: [Reason]|
-+--------------------------------------------------+
-| [Header Actions: Renew | Set Expiration]         |
-+--------------------------------------------------+
-```
-
-## Dependencies
-
-- Laravel Authorization (Gates)
-- Filament Forms (Placeholder, DateTimePicker, Section, Split)
-- Carbon (date/time manipulation)
-- Application Services (ExpirationService)
-- Domain Support (Expiry helper class)
-- Translation System (Lang files)
+- The page is strictly read-only; there are no POST/PUT surfaces, no
+  Livewire actions and no header actions exposed to owners.
+- The support URL is admin-configured and rendered with Blade escaping; the
+  link uses `rel="noopener noreferrer"`.
+- All state derives from the tenant server via the panel's standard
+  authorization; no cross-server data access is possible.
