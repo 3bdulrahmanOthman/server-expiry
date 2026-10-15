@@ -303,6 +303,7 @@ final class ClaimNotificationPortabilityTest extends TestCase
         $this->seedOne($pdo, 'processing', now(), '4');                        // live worker
         $this->seedOne($pdo, 'sent', now()->modify('-30 minutes'), '5');
     }
+
     private function commandSource(): string
     {
         return (string) file_get_contents(

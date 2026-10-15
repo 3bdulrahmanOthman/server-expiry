@@ -10,6 +10,7 @@ use DateInterval;
 use DateTimeImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -39,7 +40,12 @@ class CustomListServers extends ListServers
     {
         $table = parent::table($table);
 
-        $table->addAction(
+        // Filament v5 has no `Table::addAction()`. The supported way to extend a
+        // table that a parent page already configured is `pushRecordActions()`,
+        // which APPENDS. `recordActions()` (and its deprecated `actions()` alias)
+        // would reset the list and silently drop Pelican's own ViewConsole and
+        // Edit row actions.
+        $table->pushRecordActions([
             Action::make('extend')
                 ->label(trans('server-expiry::strings.action_extend'))
                 ->color('success')
@@ -50,10 +56,8 @@ class CustomListServers extends ListServers
                 ))
                 ->requiresConfirmation()
                 ->icon('heroicon-o-arrow-path')
-                ->tooltip(trans('server-expiry::strings.action_extend_tooltip'))
-        );
+                ->tooltip(trans('server-expiry::strings.action_extend_tooltip')),
 
-        $table->addAction(
             Action::make('renew')
                 ->label(trans('server-expiry::strings.action_renew'))
                 ->color('warning')
@@ -70,10 +74,8 @@ class CustomListServers extends ListServers
                 })
                 ->requiresConfirmation()
                 ->icon('heroicon-o-arrow-path')
-                ->tooltip(trans('server-expiry::strings.action_renew_tooltip'))
-        );
+                ->tooltip(trans('server-expiry::strings.action_renew_tooltip')),
 
-        $table->addAction(
             Action::make('clear')
                 ->label(trans('server-expiry::strings.action_clear'))
                 ->color('danger')
@@ -81,10 +83,8 @@ class CustomListServers extends ListServers
                 ->action(fn (Server $record) => app(ExpirationService::class)->clearExpiration($record->getKey()))
                 ->requiresConfirmation()
                 ->icon('heroicon-o-trash')
-                ->tooltip(trans('server-expiry::strings.action_clear_tooltip'))
-        );
+                ->tooltip(trans('server-expiry::strings.action_clear_tooltip')),
 
-        $table->addAction(
             Action::make('set_expiration')
                 ->label(trans('server-expiry::strings.action_set_expiration'))
                 ->color('primary')
@@ -111,10 +111,8 @@ class CustomListServers extends ListServers
                 ->modalButton(trans('server-expiry::strings.action_set_expiration'))
                 ->modalSubmitActionLabel(trans('server-expiry::strings.action_set_expiration'))
                 ->modalCancelActionLabel('Cancel')
-                ->modalWidth('lg')
-        );
+                ->modalWidth('lg'),
 
-        $table->addAction(
             Action::make('check_status')
                 ->label(trans('server-expiry::strings.action_check_status'))
                 ->color('info')
@@ -139,79 +137,85 @@ class CustomListServers extends ListServers
                         )
                         ->send();
                 })
-                ->icon('heroicon-o-information-circle')
-        );
+                ->icon('heroicon-o-information-circle'),
+        ]);
 
-        $table->addBulkAction(
-            BulkAction::make('renew')
-                ->label(trans('server-expiry::strings.bulk_action_renew'))
-                ->color('warning')
-                ->action(function (Collection $records) {
-                    $expirationService = app(ExpirationService::class);
-                    $unauthorized = false;
-                    foreach ($records as $record) {
-                        if (! Gate::allows('update', $record)) {
-                            $unauthorized = true;
+        // Filament v5 has no `Table::addBulkAction()` either, and bulk actions are
+        // no longer a separate concept: they live in the toolbar inside a
+        // `BulkActionGroup`. `pushToolbarActions()` appends, so Pelican's own
+        // CreateAction in the toolbar is preserved.
+        $table->pushToolbarActions([
+            BulkActionGroup::make([
+                BulkAction::make('renew')
+                    ->label(trans('server-expiry::strings.bulk_action_renew'))
+                    ->color('warning')
+                    ->action(function (Collection $records) {
+                        $expirationService = app(ExpirationService::class);
+                        $unauthorized = false;
+                        foreach ($records as $record) {
+                            if (! Gate::allows('update', $record)) {
+                                $unauthorized = true;
+                            }
                         }
-                    }
-                    if ($unauthorized) {
-                        Notification::make()
-                            ->warning()
-                            ->body('You are not authorized to renew one or more servers.')
-                            ->send();
+                        if ($unauthorized) {
+                            Notification::make()
+                                ->warning()
+                                ->body('You are not authorized to renew one or more servers.')
+                                ->send();
 
-                        return;
-                    }
-                    foreach ($records as $record) {
-                        $currentExpiration = $expirationService->getExpiration($record->getKey());
-                        $now = new DateTimeImmutable('now');
-                        $newDateTime = $currentExpiration->isPermanent()
-                            ? $now->add(new DateInterval('P30D'))
-                            : $currentExpiration->getDateTime()->add(new DateInterval('P30D'));
-                        $newExpiration = ExpirationDate::fromDateTime($newDateTime);
-                        $expirationService->renew($record->getKey(), $newExpiration);
-                    }
-                    Notification::make()
-                        ->success()
-                        ->body(trans('server-expiry::strings.settings_saved'))
-                        ->send();
-                })
-                ->requiresConfirmation()
-        );
-
-        $table->addBulkAction(
-            BulkAction::make('clear')
-                ->label(trans('server-expiry::strings.bulk_action_clear'))
-                ->color('danger')
-                ->action(function (Collection $records) {
-                    $expirationService = app(ExpirationService::class);
-                    $unauthorized = false;
-                    foreach ($records as $record) {
-                        if (! Gate::allows('update', $record)) {
-                            $unauthorized = true;
+                            return;
                         }
-                    }
-                    if ($unauthorized) {
+                        foreach ($records as $record) {
+                            $currentExpiration = $expirationService->getExpiration($record->getKey());
+                            $now = new DateTimeImmutable('now');
+                            $newDateTime = $currentExpiration->isPermanent()
+                                ? $now->add(new DateInterval('P30D'))
+                                : $currentExpiration->getDateTime()->add(new DateInterval('P30D'));
+                            $newExpiration = ExpirationDate::fromDateTime($newDateTime);
+                            $expirationService->renew($record->getKey(), $newExpiration);
+                        }
                         Notification::make()
-                            ->warning()
-                            ->body('You are not authorized to clear expiration for one or more servers.')
+                            ->success()
+                            ->body(trans('server-expiry::strings.settings_saved'))
                             ->send();
+                    })
+                    ->requiresConfirmation(),
 
-                        return;
-                    }
-                    foreach ($records as $record) {
-                        $expirationService->clearExpiration($record->getKey());
-                    }
-                    Notification::make()
-                        ->success()
-                        ->body(trans('server-expiry::strings.settings_saved'))
-                        ->send();
-                })
-                ->requiresConfirmation()
-        );
+                BulkAction::make('clear')
+                    ->label(trans('server-expiry::strings.bulk_action_clear'))
+                    ->color('danger')
+                    ->action(function (Collection $records) {
+                        $expirationService = app(ExpirationService::class);
+                        $unauthorized = false;
+                        foreach ($records as $record) {
+                            if (! Gate::allows('update', $record)) {
+                                $unauthorized = true;
+                            }
+                        }
+                        if ($unauthorized) {
+                            Notification::make()
+                                ->warning()
+                                ->body('You are not authorized to clear expiration for one or more servers.')
+                                ->send();
 
-        return $table->columns([
-            ...$table->getColumns(),
+                            return;
+                        }
+                        foreach ($records as $record) {
+                            $expirationService->clearExpiration($record->getKey());
+                        }
+                        Notification::make()
+                            ->success()
+                            ->body(trans('server-expiry::strings.settings_saved'))
+                            ->send();
+                    })
+                    ->requiresConfirmation(),
+            ]),
+        ]);
+
+        // `columns()` resets the list, so the parent's columns would have to be
+        // re-spread by hand. `pushColumns()` appends them and keeps Pelican's
+        // column definitions as the single source of truth.
+        $table->pushColumns([
             TextColumn::make('expires_at')
                 ->label(trans('server-expiry::strings.column_label'))
                 ->dateTime('Y-m-d H:i')
@@ -247,5 +251,7 @@ class CustomListServers extends ListServers
                 })
                 ->html(),
         ]);
+
+        return $table;
     }
 }

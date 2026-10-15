@@ -36,6 +36,8 @@ use App\Filament\Admin\Resources\Servers\ServerResource;
 use App\Models\Role;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Filament\Schemas\Schema;
+use Filament\Tables\Table;
 use Illuminate\Contracts\Console\Kernel;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Filament\Admin\Resources\Servers\Pages\CustomListServers;
@@ -98,7 +100,7 @@ if (! function_exists('serverExpiryBootPlugin')) {
         // The admin panel carries both Filament resources and the custom server
         // pages/tabs registered from ServerExpiryPlugin::register().
         Filament::setCurrentPanel('admin');
-        Filament::getPanel('admin')->plugin(new ServerExpiryPlugin());
+        Filament::getPanel('admin')->plugin(new ServerExpiryPlugin);
         Filament::getPanel('admin')->boot();
     }
 
@@ -164,7 +166,7 @@ it('builds the endpoint form on the Filament 5 schema API', function () {
     // Compiling this call resolves every Filament class it touches and enforces the
     // inherited signature: a v4-era `Filament\Forms\Form` parameter, a missing
     // Filament\Schemas\Components\Section, or a visibility change all fail here.
-    $schema = WebhookEndpointResource::form(Filament\Schemas\Schema::make());
+    $schema = WebhookEndpointResource::form(Schema::make());
 
     expect($schema->getComponents())->not->toBeEmpty();
 });
@@ -172,7 +174,7 @@ it('builds the endpoint form on the Filament 5 schema API', function () {
 it('builds the endpoint table on the Filament 5 table API', function () {
     // Resolves the row actions (Filament\Actions\* in v5, not
     // Filament\Tables\Actions\*) and the table filters.
-    $table = WebhookEndpointResource::table(Filament\Tables\Table::make());
+    $table = WebhookEndpointResource::table(Table::make());
 
     expect($table->getColumns())->not->toBeEmpty();
     expect($table->getFlatActions())->not->toBeEmpty();
@@ -213,8 +215,8 @@ it('resolves the endpoint resource to a real admin URL', function () {
 */
 
 it('builds the delivery form and table on the Filament 5 APIs', function () {
-    $schema = WebhookDeliveryResource::form(Filament\Schemas\Schema::make());
-    $table = WebhookDeliveryResource::table(Filament\Tables\Table::make());
+    $schema = WebhookDeliveryResource::form(Schema::make());
+    $table = WebhookDeliveryResource::table(Table::make());
 
     expect($schema->getComponents())->not->toBeEmpty();
     expect($table->getColumns())->not->toBeEmpty();
@@ -232,7 +234,7 @@ it('renders the delivery list and create pages', function () {
 });
 
 it('resolves the retry action and renders a delivery view page', function () {
-    $table = WebhookDeliveryResource::table(Filament\Tables\Table::make());
+    $table = WebhookDeliveryResource::table(Table::make());
 
     expect($table->getFlatActions())->toHaveKey('retry');
 
@@ -292,6 +294,23 @@ it('exposes the expiration row actions on the server list', function () {
         ->assertTableActionExists('check_status');
 });
 
+it('exposes the expiration bulk actions on the server list', function () {
+    // v2.0.0 called Table::addBulkAction(), which does not exist in Filament 5; the
+    // bulk actions only exist again once they are pushed into a BulkActionGroup.
+    livewire(CustomListServers::class)
+        ->assertTableBulkActionExists('renew')
+        ->assertTableBulkActionExists('clear');
+});
+
+it('keeps the parent table actions instead of replacing them', function () {
+    // The plugin appends via pushRecordActions()/pushToolbarActions() precisely so
+    // that Pelican's own actions survive. Switching to the resetting variants
+    // (recordActions()/toolbarActions()) would drop them silently, so pin them.
+    livewire(CustomListServers::class)
+        ->assertTableActionExists('edit')
+        ->assertTableActionExists('create');
+});
+
 it('runs the renew action body, which is where the DateTimeImmutable defect lived', function () {
     // Rendering the page only BUILDS the action closure; the defect was in the
     // closure body (`new DateTimeImmutable('now')` resolving against the plugin
@@ -322,10 +341,14 @@ it('renders the admin server edit page with the expiration tab', function () {
 
 it('registers the owner expiration page on the server panel', function () {
     Filament::setCurrentPanel('server');
-    Filament::getPanel('server')->plugin(new ServerExpiryPlugin());
+    Filament::getPanel('server')->plugin(new ServerExpiryPlugin);
 
+    // Panel::getPages() returns a LIST of page class-strings (Filament 5.7
+    // HasComponents::getPages() => array_unique($this->pages)), NOT a map keyed
+    // by slug. Asserting a slug key here was simply the wrong assumption; the
+    // real registration contract is that discoverPages() picked up the class.
     expect(Filament::getPanel('server')->getPages())
-        ->toHaveKey('server-expiry.filament.server.pages.expiry-settings');
+        ->toContain(ExpirySettingsPage::class);
 
     expect(ExpirySettingsPage::getNavigationLabel())
         ->toBe(trans('server-expiry::strings.settings_nav_label'));
@@ -338,7 +361,7 @@ it('registers the owner expiration page on the server panel', function () {
 */
 
 it('builds the plugin settings form on the Filament 5 schema API', function () {
-    $plugin = new ServerExpiryPlugin();
+    $plugin = new ServerExpiryPlugin;
 
     expect($plugin->getSettingsForm())->not->toBeEmpty();
     expect($plugin->getSettingsFormData())

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SquadronStrike\ServerExpiry\Tests\Domain;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use PHPUnit\Framework\TestCase;
 use SquadronStrike\ServerExpiry\Domain\Expiration\Enums\ExpirationStatus;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
@@ -93,18 +94,55 @@ final class ExpirationDateTest extends TestCase
         $this->assertSame(ExpirationStatus::EXPIRED, $expiration->getStatus($now, 7, 0));
     }
 
+    /**
+     * `fromString()` normalizes to `date_default_timezone_get()`, so the old version
+     * of this test only passed when the host happened to already be on UTC+2: it
+     * hardcoded "10:00 UTC == 12:00 local". Under CI (`APP_TIMEZONE=UTC`) the
+     * normalization is a no-op and the two strings became 12:00Z vs 10:00Z.
+     *
+     * The behaviour actually under test is that normalization is instant-preserving:
+     * the same wall-clock date/time written with an explicit offset and written bare
+     * (i.e. already in the app timezone) must resolve to the same instant, whatever
+     * the app timezone is. So set the timezone explicitly and assert it for more
+     * than one zone instead of assuming a single one.
+     */
     public function test_from_string_normalizes_timezone_offset_to_app_timezone(): void
     {
-        // 2026-09-20 10:00 UTC == 12:00 in UTC+2 (a common app timezone).
-        // The wall-clock time must be normalized so no offset shift occurs.
-        $expiration = ExpirationDate::fromString('2026-09-20T10:00:00+00:00');
-        $normalized = ExpirationDate::fromString('2026-09-20 12:00:00');
+        $originalTimezone = date_default_timezone_get();
 
-        $this->assertFalse($expiration->isPermanent());
-        $this->assertTrue(
-            $expiration->equals($normalized),
-            'An explicit UTC offset must normalize to the same instant as the local wall time'
-        );
+        try {
+            foreach (['UTC', 'Etc/GMT-2', 'America/New_York'] as $timezone) {
+                date_default_timezone_set($timezone);
+                $this->assertSame(
+                    $timezone,
+                    date_default_timezone_get(),
+                    'The test must actually be running in the timezone it claims to cover'
+                );
+
+                $wallClock = '2026-09-20 10:00:00';
+
+                $withOffset = ExpirationDate::fromString(
+                    (new DateTimeImmutable($wallClock))->format(DateTimeInterface::ATOM)
+                );
+                $bareLocal = ExpirationDate::fromString($wallClock);
+
+                $this->assertFalse($withOffset->isPermanent());
+                $this->assertTrue(
+                    $withOffset->equals($bareLocal),
+                    "An explicit UTC offset must normalize to the same instant as the local wall time in {$timezone}"
+                );
+
+                // And the normalized value really is expressed in the app timezone,
+                // rather than merely comparing equal by timestamp.
+                $this->assertSame(
+                    $timezone,
+                    $withOffset->getDateTime()->getTimezone()->getName(),
+                    "The normalized value must carry the app timezone ({$timezone})"
+                );
+            }
+        } finally {
+            date_default_timezone_set($originalTimezone);
+        }
     }
 
     public function test_from_string_with_null_is_permanent(): void
