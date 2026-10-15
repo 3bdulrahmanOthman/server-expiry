@@ -101,7 +101,15 @@ jobs:
         env:
             APP_ENV: testing
             APP_DEBUG: 'false'
-            APP_KEY: base64:ThisIsARandomStringForTests12345=
+            # A valid key: `base64:` must decode to exactly 32 bytes for the
+            # AES-256-CBC cipher Laravel uses. The previous value
+            # (base64:ThisIsARandomStringForTests12345=) was not even valid base64,
+            # so the Encrypter threw "Unsupported cipher or incorrect key length"
+            # and took every test that rendered an encrypted Livewire snapshot
+            # (for example the Filament interceptor view) down with it.
+            # This is a throwaway test key, decoded from
+            # "ServerExpiryPluginTestKey32Bytes".
+            APP_KEY: base64:U2VydmVyRXhwaXJ5UGx1Z2luVGVzdEtleTMyQnl0ZXM=
             APP_TIMEZONE: UTC
             APP_URL: http://localhost/
             CACHE_STORE: array
@@ -146,6 +154,14 @@ jobs:
                 working-directory: panel
                 run: |
                     cp .env.example .env
+                    # .env.example ships `APP_KEY=` (empty). Setting it here as well
+                    # as in the job env removes any dependence on phpdotenv's
+                    # precedence rules, so the Encrypter always has a 32-byte key.
+                    php -r '
+                        $env = file_get_contents(".env");
+                        $env = preg_replace("/^APP_KEY=.*$/m", "APP_KEY=".getenv("APP_KEY"), $env);
+                        file_put_contents(".env", $env);
+                    '
                     composer install --no-interaction --prefer-dist --no-progress --no-scripts
 
             -   name: Install the plugin into the panel

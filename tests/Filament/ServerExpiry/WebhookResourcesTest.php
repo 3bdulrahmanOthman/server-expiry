@@ -102,6 +102,18 @@ if (! function_exists('serverExpiryBootPlugin')) {
         Filament::setCurrentPanel('admin');
         Filament::getPanel('admin')->plugin(new ServerExpiryPlugin);
         Filament::getPanel('admin')->boot();
+
+        // Filament builds every panel's routes from Panel::getResources() while
+        // the framework is booting (vendor/filament/filament/routes/web.php runs
+        // `foreach ($panel->getResources() as $resource) { $resource::registerRoutes($panel); }`).
+        // In a real installation PluginService::loadPanelPlugins() has already
+        // attached the plugin by then, because the panel provider calls it from
+        // panel(). Under `runningUnitTests()` that method returns early, so the
+        // plugin - and therefore its two resources - arrives AFTER the routes
+        // exist. Re-running the route table after registering the plugin is the
+        // supported way to pick the late resources up; without it every
+        // Resource::getUrl() call throws RouteNotFoundException.
+        require base_path('vendor/filament/filament/routes/web.php');
     }
 
     /**
@@ -148,6 +160,43 @@ if (! function_exists('serverExpiryBootPlugin')) {
 
         return $admin;
     }
+
+    /**
+     * Resolve a resource's table the way Filament itself does.
+     *
+     * `Table::make()` is NOT a no-argument factory in Filament 5.7:
+     * `Table::__construct(HasTable $livewire)` and `Table::make(HasTable $livewire)`
+     * both require the owning Livewire component, because the table evaluates its
+     * closures (record actions, authorization, column state) against that component.
+     * Building one by hand therefore either fatals with ArgumentCountError or
+     * produces a table detached from the page it belongs to.
+     *
+     * The resource's own list page IS the HasTable component, so it is mounted
+     * through Livewire and asked for its table. That also means the table is built
+     * with the page's real Livewire state, exactly as production does it.
+     *
+     * @param  class-string  $listPage
+     */
+    function serverExpiryTableOf(string $listPage): Table
+    {
+        return livewire($listPage)->instance()->getTable();
+    }
+
+    /**
+     * Register the plugin on a panel whose routes have already been built.
+     *
+     * The `server` panel is reached by the tests below only after the admin panel
+     * was wired up, so its own route table has to be rebuilt for the same reason
+     * documented in serverExpiryBootPlugin().
+     */
+    function serverExpiryBootServerPanel(): void
+    {
+        Filament::setCurrentPanel('server');
+        Filament::getPanel('server')->plugin(new ServerExpiryPlugin);
+        Filament::getPanel('server')->boot();
+
+        require base_path('vendor/filament/filament/routes/web.php');
+    }
 }
 
 beforeEach(function (): void {
@@ -173,8 +222,9 @@ it('builds the endpoint form on the Filament 5 schema API', function () {
 
 it('builds the endpoint table on the Filament 5 table API', function () {
     // Resolves the row actions (Filament\Actions\* in v5, not
-    // Filament\Tables\Actions\*) and the table filters.
-    $table = WebhookEndpointResource::table(Table::make());
+    // Filament\Tables\Actions\*) and the table filters. The table comes from the
+    // resource's real list page, because Table::make() requires a HasTable owner.
+    $table = serverExpiryTableOf(ListWebhookEndpoints::class);
 
     expect($table->getColumns())->not->toBeEmpty();
     expect($table->getFlatActions())->not->toBeEmpty();
@@ -216,7 +266,7 @@ it('resolves the endpoint resource to a real admin URL', function () {
 
 it('builds the delivery form and table on the Filament 5 APIs', function () {
     $schema = WebhookDeliveryResource::form(Schema::make());
-    $table = WebhookDeliveryResource::table(Table::make());
+    $table = serverExpiryTableOf(ListWebhookDeliveries::class);
 
     expect($schema->getComponents())->not->toBeEmpty();
     expect($table->getColumns())->not->toBeEmpty();
@@ -234,7 +284,7 @@ it('renders the delivery list and create pages', function () {
 });
 
 it('resolves the retry action and renders a delivery view page', function () {
-    $table = WebhookDeliveryResource::table(Table::make());
+    $table = serverExpiryTableOf(ListWebhookDeliveries::class);
 
     expect($table->getFlatActions())->toHaveKey('retry');
 
@@ -340,8 +390,7 @@ it('renders the admin server edit page with the expiration tab', function () {
 */
 
 it('registers the owner expiration page on the server panel', function () {
-    Filament::setCurrentPanel('server');
-    Filament::getPanel('server')->plugin(new ServerExpiryPlugin);
+    serverExpiryBootServerPanel();
 
     // Panel::getPages() returns a LIST of page class-strings (Filament 5.7
     // HasComponents::getPages() => array_unique($this->pages)), NOT a map keyed
@@ -349,6 +398,9 @@ it('registers the owner expiration page on the server panel', function () {
     // real registration contract is that discoverPages() picked up the class.
     expect(Filament::getPanel('server')->getPages())
         ->toContain(ExpirySettingsPage::class);
+
+    // The page must also be reachable, which is what proves its route exists.
+    expect(ExpirySettingsPage::getUrl())->toContain('/server/');
 
     expect(ExpirySettingsPage::getNavigationLabel())
         ->toBe(trans('server-expiry::strings.settings_nav_label'));
