@@ -277,7 +277,39 @@ it('diagnoses route and resource registration state', function () {
 it('resolves the endpoint resource to a real admin URL', function () {
     // Routes only exist when the resource is registered on a booted panel, so this
     // proves the plugin actually attached it rather than merely defining it.
-    expect(WebhookEndpointResource::getUrl('index'))->toContain('/admin/server-expiry/webhook-endpoints');
+    //
+    // The panel is passed explicitly: Resource::getUrl() otherwise resolves it from
+    // Filament::getCurrentOrDefaultPanel(), and this file registers a second panel
+    // (the owner-facing one) which would make the assertion depend on test order.
+    $panel = Filament::getPanel('admin');
+    $baseName = WebhookEndpointResource::getRouteBaseName($panel);
+    $routeName = "{$baseName}.index";
+
+    $url = null;
+    $thrown = null;
+
+    try {
+        $url = WebhookEndpointResource::getUrl('index', panel: 'admin');
+    } catch (Throwable $e) {
+        $thrown = $e::class.': '.$e->getMessage();
+    }
+
+    fwrite(STDERR, "\nURL_DIAG ".json_encode([
+        'base_name' => $baseName,
+        'route_name' => $routeName,
+        'current_panel_id' => Filament::getCurrentPanel()?->getId(),
+        'route_collection_has_name' => in_array(
+            $routeName,
+            array_map(fn ($r) => $r->getName(), app('router')->getRoutes()->getRoutes()),
+            true
+        ),
+        'router_has' => app('router')->has($routeName),
+        'resolved_url' => $url,
+        'thrown' => $thrown,
+    ], JSON_PRETTY_PRINT)."\n");
+
+    expect($baseName)->toBe('filament.admin.resources.server-expiry.webhook-endpoints');
+    expect($url)->toContain('/admin/server-expiry/webhook-endpoints');
 });
 
 /*
@@ -345,6 +377,14 @@ it('attaches both resources to the admin panel', function () {
 
 it('replaces the core server index and edit pages with the plugin extensions', function () {
     $pages = ServerResource::getPages();
+
+    fwrite(STDERR, "\nPAGES_DIAG ".json_encode([
+        'page_keys' => array_keys($pages),
+        'index_page' => $pages['index']->getPage(),
+        'edit_page' => $pages['edit']->getPage(),
+        'expected_index' => CustomListServers::class,
+        'expected_edit' => ServerExpiryEditServer::class,
+    ], JSON_PRETTY_PRINT)."\n");
 
     expect($pages['index']->getPage())->toBe(CustomListServers::class);
     expect($pages['edit']->getPage())->toBe(ServerExpiryEditServer::class);
