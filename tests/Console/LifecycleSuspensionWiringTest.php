@@ -33,6 +33,8 @@ final class LifecycleSuspensionWiringTest extends TestCase
 
     private const PROVIDER = __DIR__.'/../../src/Providers/ServerExpiryServiceProvider.php';
 
+    private const GUARD = __DIR__.'/../../src/Support/SuspensionGuard.php';
+
     public function test_lifecycle_command_is_scheduled_every_minute_without_overlap(): void
     {
         $provider = $this->source(self::PROVIDER);
@@ -90,9 +92,69 @@ final class LifecycleSuspensionWiringTest extends TestCase
         $command = $this->source(self::COMMAND);
 
         $this->assertMatchesRegularExpression(
-            '/if \(! \$this->expirationService->processExpiration\(\$server->id\)\) \{.*?continue;/s',
+            '/if \(! SuspensionGuard::stillEligibleForExpirationSuspension\(\$server, \$this->expirationService\)\) \{.*?continue;/s',
             $command,
-            'Servers the service deems ineligible (inside grace, auto-suspend off) must be skipped'
+            'Servers the guard deems ineligible (inside grace, auto-suspend off, manually suspended) must be skipped'
+        );
+
+        // The guard must not re-implement the business rules: it has to re-ask the
+        // single owner of the suspension rules.
+        $this->assertStringContainsString(
+            '$expirationService->processExpiration($locked->getKey())',
+            $this->source(self::GUARD),
+            'SuspensionGuard must delegate the rule decision back to ExpirationService::processExpiration()'
+        );
+    }
+
+    /**
+     * H(P0-2) regression guard: the manual-suspension invariant.
+     *
+     * The candidate list is produced by a bulk SELECT, so an administrator can
+     * suspend the same server by hand before the per-server write happens. Without
+     * re-validation the scheduler overwrote suspension_reason = 'manual' with
+     * 'expiration', silently making a manually suspended server eligible for
+     * automatic revival on renewal.
+     */
+    public function test_eligibility_is_revalidated_under_a_row_lock_before_suspending(): void
+    {
+        $guard = $this->source(self::GUARD);
+
+        $this->assertStringContainsString(
+            'lockForUpdate()',
+            $guard,
+            'The guard must re-read the server row under a row lock to close the check-then-act window'
+        );
+        $this->assertStringContainsString(
+            'DB::transaction(',
+            $guard,
+            'The locked re-read must run inside a transaction, otherwise the lock is released immediately'
+        );
+        $this->assertMatchesRegularExpression(
+            "/suspensionReason === 'manual'/",
+            $guard,
+            "A server suspended by hand (suspension_reason = 'manual') must never be converted into an expiration suspension"
+        );
+        $this->assertStringContainsString(
+            '$locked->isSuspended()',
+            $guard,
+            'A server suspended between the batch read and the write must be skipped'
+        );
+    }
+
+    public function test_guard_does_not_hold_the_lock_across_the_daemon_sync(): void
+    {
+        // The suspension (and the Wings sync it triggers) must happen after the
+        // guard returns, so no row lock is held across a network round-trip.
+        $command = $this->source(self::COMMAND);
+        $guardPosition = strpos($command, 'SuspensionGuard::stillEligibleForExpirationSuspension');
+        $handlePosition = strpos($command, '$this->suspensionService->handle($server, SuspendAction::Suspend)');
+
+        $this->assertNotFalse($guardPosition);
+        $this->assertNotFalse($handlePosition);
+        $this->assertLessThan(
+            $handlePosition,
+            $guardPosition,
+            'The eligibility guard must run before SuspensionService::handle, and outside it'
         );
     }
 
@@ -156,7 +218,11 @@ final class LifecycleSuspensionWiringTest extends TestCase
 
         $this->assertMatchesRegularExpression('/if \(! \$this->expirationService->isAutoSuspendEnabled\(\)\)/', $command);
         $this->assertStringContainsString('$threshold = now()->subHours($graceHours);', $command);
-        $this->assertMatchesRegularExpression('/if \(! \$this->expirationService->processExpiration\(\$server->id\)\) \{/', $command);
+        $this->assertMatchesRegularExpression(
+            '/if \(! SuspensionGuard::stillEligibleForExpirationSuspension\(\$server, \$this->expirationService\)\) \{/',
+            $command,
+            'The standalone command must apply the same locked re-validation as the consolidated lifecycle command'
+        );
 
         $flagPosition = strpos($command, 'SuspensionContext::setExpirationSuspensionInProgress(true)');
         $handlePosition = strpos($command, '$this->suspensionService->handle($server, SuspendAction::Suspend)');

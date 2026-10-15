@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects;
 
+use InvalidArgumentException;
+
 /**
  * Value object representing a warning threshold in days.
  * Ensures the threshold is a positive integer.
