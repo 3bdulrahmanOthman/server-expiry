@@ -114,6 +114,15 @@ if (! function_exists('serverExpiryBootPlugin')) {
         // supported way to pick the late resources up; without it every
         // Resource::getUrl() call throws RouteNotFoundException.
         require base_path('vendor/filament/filament/routes/web.php');
+
+        // Adding routes is not enough: RouteCollection::getByName() reads a
+        // `$nameList` index that is only rebuilt by refreshNameLookups(), which
+        // Laravel calls when the route set is compiled. Anything registered after
+        // that point is present in the collection (so iterating getRoutes() finds
+        // it) but invisible to route()/Route::has(), which is exactly the
+        // "route not defined" failure. Rebuilding the index makes the names added
+        // above resolvable.
+        app('router')->getRoutes()->refreshNameLookups();
     }
 
     /**
@@ -196,6 +205,8 @@ if (! function_exists('serverExpiryBootPlugin')) {
         Filament::getPanel('server')->boot();
 
         require base_path('vendor/filament/filament/routes/web.php');
+
+        app('router')->getRoutes()->refreshNameLookups();
     }
 }
 
@@ -378,12 +389,19 @@ it('attaches both resources to the admin panel', function () {
 it('replaces the core server index and edit pages with the plugin extensions', function () {
     $pages = ServerResource::getPages();
 
+    $reflection = new ReflectionClass(ServerResource::class);
+    $customProperty = $reflection->getProperty('customPages');
+    $customProperty->setAccessible(true);
+
     fwrite(STDERR, "\nPAGES_DIAG ".json_encode([
         'page_keys' => array_keys($pages),
         'index_page' => $pages['index']->getPage(),
         'edit_page' => $pages['edit']->getPage(),
         'expected_index' => CustomListServers::class,
         'expected_edit' => ServerExpiryEditServer::class,
+        'custom_page_keys' => array_keys($customProperty->getValue()),
+        'custom_index_page' => $customProperty->getValue()['index']?->getPage(),
+        'default_page_keys' => array_keys(ServerResource::getDefaultPages()),
     ], JSON_PRETTY_PRINT)."\n");
 
     expect($pages['index']->getPage())->toBe(CustomListServers::class);
