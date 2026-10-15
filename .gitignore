@@ -18,7 +18,10 @@
 Thumbs.db
 
 # Composer / NPM caches
-composer.lock
+# composer.lock is tracked on purpose: CI installs with `composer install` so the
+# test job resolves the exact dependency set that was tested, not a fresh one.
+# It is a plugin (no runtime dependencies of its own), so the lock only pins the
+# dev toolchain (pint, phpunit, and their transitive packages).
 package-lock.json
 yarn.lock
 # PHPUnit
