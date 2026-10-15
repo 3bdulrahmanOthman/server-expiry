@@ -13,6 +13,7 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -107,7 +108,7 @@ class CustomListServers extends ListServers
                         ->send();
                 })
                 ->requiresConfirmation()
-                ->icon('heroicon-o-calendar-plus')
+                ->icon(Heroicon::OutlinedCalendarDays)
                 ->modalButton(trans('server-expiry::strings.action_set_expiration'))
                 ->modalSubmitActionLabel(trans('server-expiry::strings.action_set_expiration'))
                 ->modalCancelActionLabel('Cancel')

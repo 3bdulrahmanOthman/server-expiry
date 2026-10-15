@@ -252,6 +252,28 @@ it('renders the endpoint edit and view pages for a stored endpoint', function ()
     livewire(ViewWebhookEndpoint::class, ['record' => $endpoint->getRouteKey()])->assertSuccessful();
 });
 
+it('diagnoses route and resource registration state', function () {
+    $panel = Filament::getPanel('admin');
+
+    $expected = 'filament.admin.resources.server-expiry.webhook-endpoints.index';
+
+    $state = [
+        'resource_registered_on_panel' => in_array(WebhookEndpointResource::class, $panel->getResources(), true),
+        'resource_in_getresources_count' => count($panel->getResources()),
+        'relative_route_name' => WebhookEndpointResource::getRelativeRouteName($panel),
+        'route_exists' => app('router')->has($expected),
+        'route_names_is_registered' => in_array(
+            $expected,
+            array_map(fn ($r) => $r->getName(), app('router')->getRoutes()->getRoutes()),
+            true
+        ),
+    ];
+
+    fwrite(STDERR, "\nROUTE_DIAG ".json_encode($state, JSON_PRETTY_PRINT)."\n");
+
+    expect($state['resource_registered_on_panel'])->toBeTrue();
+});
+
 it('resolves the endpoint resource to a real admin URL', function () {
     // Routes only exist when the resource is registered on a booted panel, so this
     // proves the plugin actually attached it rather than merely defining it.

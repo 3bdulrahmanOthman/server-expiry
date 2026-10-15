@@ -9,6 +9,7 @@ use App\Models\Server;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
@@ -25,7 +26,13 @@ class EditServer extends PelicanEditServer
         return array_merge(parent::getHeaderActions(), [
             Action::make('set_expiration')
                 ->label('Set Expiration')
-                ->icon('heroicon-o-calendar-plus')
+                // 'heroicon-o-calendar-plus' is not a real icon: the heroicons set
+                // ships calendar, calendar-days and calendar-date-range only. The
+                // renderer therefore threw
+                // `SvgNotFound: Svg by name "o-calendar-plus" from set "heroicons" not found`
+                // and the form could not render. The Heroicon enum cannot drift from
+                // the shipped icon set, so it is used instead.
+                ->icon(Heroicon::OutlinedCalendarDays)
                 ->color('primary')
                 ->form([
                     DateTimePicker::make('expires_at')
@@ -152,8 +159,7 @@ class EditServer extends PelicanEditServer
                 ->requiresConfirmation()
                 ->modalWidth('md')
                 ->modalSubmitActionLabel('Clear')
-                ->modalCancelActionLabel('Cancel')
-                ->destructive(),
+                ->modalCancelActionLabel('Cancel'),
         ]);
     }
 }
