@@ -27,8 +27,9 @@
  * Placement contract: the plugin's CI "Filament feature tests" job copies this file
  * into the panel's tests/Filament tree. The panel's tests/Pest.php binds
  * tests/Filament to App\Tests\Integration\IntegrationTestCase, which is what
- * provides the application, migrations and RefreshDatabase behaviour. The binding
- * is repeated below so the file also works when run from that tree directly.
+ * provides the application, migrations and RefreshDatabase behaviour. That binding
+ * is deliberately NOT repeated here: Pest rejects a test case that is applied to a
+ * path twice (and the directory binding already covers this file).
  */
 
 use App\Filament\Admin\Resources\Servers\ServerResource;
@@ -146,8 +147,6 @@ if (! function_exists('serverExpiryBootPlugin')) {
         return $admin;
     }
 }
-
-uses(App\Tests\Integration\IntegrationTestCase::class);
 
 beforeEach(function (): void {
     serverExpiryBootPlugin();

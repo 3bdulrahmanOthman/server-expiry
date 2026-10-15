@@ -150,9 +150,8 @@ final class UnimportedClassReferenceTest extends TestCase
      * them. An unimported *userland* class in the global namespace does resolve,
      * because the autoloader path reaches it.
      *
-     * @param  array<string, string>  $index  Reserved for plugin-declared classes; the
-     *                                        current rule needs no lookup because an
-     *                                        unimported engine class is fatal outright.
+     * $index is reserved for plugin-declared classes; the current rule needs no
+     * lookup because an unimported engine class is fatal outright.
      */
     private function resolvesToSomethingReal(string $namespace, string $candidate, array $index): bool
     {
@@ -272,7 +271,6 @@ final class UnimportedClassReferenceTest extends TestCase
      * `<currentNamespace>\<name>`; that is correct only when the short name is
      * imported or when the fully-qualified name exists (PHP built-ins).
      *
-     * @param  array<string, string>  $index
      * @return array<int, array{name: string, line: int, expression: string}>
      */
     private function unimportedReferencesFromSource(string $source, array $index = []): array
