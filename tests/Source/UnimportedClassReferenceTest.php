@@ -443,8 +443,6 @@ final class UnimportedClassReferenceTest extends TestCase
      * Return the single unqualified class token that follows a T_NEW, skipping
      * whitespace. Anything else (qualified names, variables, parentheses for
      * anonymous classes) is not an unqualified class reference.
-     *
-     * @return string|null
      */
     private function classTokenAfter(array $tokens, int $index, int $offset): ?string
     {
@@ -469,8 +467,6 @@ final class UnimportedClassReferenceTest extends TestCase
 
     /**
      * Return the single unqualified class token preceding a T_DOUBLE_COLON.
-     *
-     * @return string|null
      */
     private function classTokenBefore(array $tokens, int $index): ?string
     {
