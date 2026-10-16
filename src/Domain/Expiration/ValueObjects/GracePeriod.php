@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects;
 
+use InvalidArgumentException;
+
 /**
  * Value object representing a grace period in hours.
  * Ensures the grace period is a non-negative integer.

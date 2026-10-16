@@ -10,6 +10,8 @@ use App\Models\Server;
 use App\Services\Servers\SuspensionService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +20,7 @@ use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
+use SquadronStrike\ServerExpiry\Support\SuspensionGuard;
 use Throwable;
 
 /**
@@ -26,6 +29,13 @@ use Throwable;
  */
 class ProcessServerExpirationCommand extends Command
 {
+    /**
+     * How long a row may sit in the 'processing' state before another run is
+     * allowed to reclaim it. This is the crash-recovery window for a worker that
+     * claimed a notification and then died before recording an outcome.
+     */
+    private const STALE_PROCESSING_MINUTES = 5;
+
     protected $signature = 'pelican:process-server-expiration
                             {--grace-hours= : Override default grace period hours}';
 
@@ -187,10 +197,14 @@ class ProcessServerExpirationCommand extends Command
                 continue;
             }
 
-            // Use expiration service to check if server should be suspended due to expiration
-            if (! $this->expirationService->processExpiration($server->id)) {
+            // Re-validate eligibility under a row lock. The candidate list was read
+            // by a bulk query above, so an administrator may have suspended this
+            // server by hand in the meantime; acting on the stale row would stamp
+            // suspension_reason = 'expiration' over 'manual' and make a manually
+            // suspended server eligible for automatic revival. See SuspensionGuard.
+            if (! SuspensionGuard::stillEligibleForExpirationSuspension($server, $this->expirationService)) {
                 $this->info(
-                    "   -> Server ID {$server->id} is not eligible for expiration-based suspension (maybe in grace period or auto-suspend disabled)."
+                    "   -> Server ID {$server->id} is not eligible for expiration-based suspension (in grace period, auto-suspend disabled, or suspended manually since the batch was read)."
                 );
 
                 continue;
@@ -295,15 +309,7 @@ class ProcessServerExpirationCommand extends Command
         return DB::transaction(function () use ($serverId, $notificationType, $identifier) {
             try {
                 // Try to update an existing row that is claimable
-                $affected = DB::table('notification_idempotency')
-                    ->where('server_id', $serverId)
-                    ->where('notification_type', $notificationType)
-                    ->where('identifier', $identifier)
-                    ->where(function ($query) {
-                        $query->where('status', 'pending')
-                            ->orWhere('status', 'failed')
-                            ->orWhereRaw("status = 'processing' AND last_attempt_at < NOW() - INTERVAL 5 MINUTE");
-                    })
+                $affected = $this->claimableNotificationQuery($serverId, $notificationType, $identifier)
                     ->update([
                         'status' => 'processing',
                         'attempts' => DB::raw('attempts + 1'),
@@ -326,14 +332,82 @@ class ProcessServerExpirationCommand extends Command
 
                 return true;
             } catch (\Exception $e) {
-                // If it's a duplicate key error, we treat it as not claimed (another process won the race)
-                if ($e instanceof \Illuminate\Database\QueryException && $e->getCode() === '23000') {
+                // A duplicate-key error means another worker won the insert race,
+                // which is the expected "not claimed" outcome rather than a failure.
+                if ($e instanceof QueryException && self::isUniqueConstraintViolation($e)) {
                     return false;
                 }
                 // Re-throw other exceptions
                 throw $e;
             }
         });
+    }
+
+    /**
+     * Select the idempotency rows that may be (re)claimed for processing.
+     *
+     * Kept as its own method so the portability contract is directly testable:
+     * the predicate is built through the query builder, so the compiled SQL uses
+     * bound parameters and no engine-specific date arithmetic. The previous
+     * implementation embedded MySQL's `NOW() - INTERVAL 5 MINUTE`, which raised
+     * `near "5": syntax error` on SQLite — the driver Pelican's own test suite
+     * configures by default (`phpunit.xml`: DB_CONNECTION=sqlite).
+     */
+    private function claimableNotificationQuery(int|string $serverId, string $notificationType, string $identifier): QueryBuilder
+    {
+        return self::scopeClaimableNotifications(
+            DB::table('notification_idempotency'),
+            $serverId,
+            $notificationType,
+            $identifier,
+        );
+    }
+
+    /**
+     * Apply the claimability predicate to a `notification_idempotency` query.
+     *
+     * A row is claimable when it is `pending`, `failed`, or stuck in `processing`
+     * past the crash-recovery window (a worker claimed it and then died before
+     * recording an outcome).
+     *
+     * Static and pure so it can be exercised against real connection grammars in
+     * tests without booting the application or instantiating the command.
+     */
+    public static function scopeClaimableNotifications(
+        QueryBuilder $query,
+        int|string $serverId,
+        string $notificationType,
+        string $identifier
+    ): QueryBuilder {
+        return $query
+            ->where('server_id', $serverId)
+            ->where('notification_type', $notificationType)
+            ->where('identifier', $identifier)
+            ->where(function (QueryBuilder $query): void {
+                $query->where('status', 'pending')
+                    ->orWhere('status', 'failed')
+                    ->orWhere(function (QueryBuilder $query): void {
+                        $query->where('status', 'processing')
+                            ->where('last_attempt_at', '<', now()->subMinutes(self::STALE_PROCESSING_MINUTES));
+                    });
+            });
+    }
+
+    /**
+     * Detect a unique-constraint violation portably.
+     *
+     * `Illuminate\Database\Connection::isUniqueConstraintError()` is protected, so
+     * it cannot be reached from here. The PDO SQLSTATE class is the portable
+     * signal: 23000 covers MySQL's 1062 and SQLite's UNIQUE failures, 23505 is
+     * PostgreSQL's unique_violation.
+     *
+     * The SQLSTATE is cast to string before comparison: the previous
+     * implementation compared the raw code against a quoted literal, which misses
+     * whenever PDO surfaces it as an int instead of a string.
+     */
+    private static function isUniqueConstraintViolation(QueryException $exception): bool
+    {
+        return in_array((string) $exception->getCode(), ['23000', '23505'], true);
     }
 
     /**

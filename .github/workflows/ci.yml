@@ -19,7 +19,9 @@ jobs:
             -   name: Setup PHP
                 uses: shivammathur/setup-php@v2
                 with:
-                    php-version: '8.2'
+                    # The target panel (Pelican 1.0) requires PHP ^8.3, so a lower
+                    # floor would lint a runtime that can never host the plugin.
+                    php-version: '8.3'
                     coverage: none
 
             -   name: Lint PHP files
@@ -39,9 +41,179 @@ jobs:
             -   name: Setup PHP
                 uses: shivammathur/setup-php@v2
                 with:
-                    php-version: '8.2'
+                    php-version: '8.3'
                     tools: pint:1.16.2
                     coverage: none
 
             -   name: Check code style
                 run: pint --test
+
+    tests:
+        name: PHPUnit (PHP ${{ matrix.php }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                # 8.3 is the floor the target panel supports; the higher versions
+                # are what current panels actually run.
+                php: ['8.3', '8.4', '8.5']
+
+        steps:
+            -   uses: actions/checkout@v4
+
+            -   name: Setup PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php }}
+                    # Declared from the locked dependency set rather than relying on
+                    # runner defaults: phpunit/phpunit requires dom, filter, json,
+                    # libxml, mbstring and xmlwriter, and the source-contract tests
+                    # call token_get_all() (tokenizer).
+                    extensions: ctype, dom, filter, json, libxml, mbstring, tokenizer, xml, xmlwriter
+                    coverage: none
+
+            -   name: Install dependencies
+                # composer.lock is tracked, so this resolves the exact dependency
+                # set that was tested instead of a fresh (and therefore different)
+                # resolution on every run.
+                run: composer install --no-interaction --prefer-dist --no-progress
+
+            -   name: Run plugin test suite
+                # The standalone suite has no Laravel dependency; it asserts the
+                # plugin's own domain rules, the source-level contracts and the
+                # notification-idempotency portability.
+                run: vendor/bin/phpunit --no-coverage
+
+    # The plugin's Filament surface can only be verified against a real panel:
+    # resources, pages and the plugin registration path all need Laravel, Filament
+    # and Pelican's own TestCase. Unit tests cannot reach that code, which is how
+    # v2.0.0 shipped using Filament v4 classes that no longer exist in v5.
+    filament:
+        name: Filament feature tests (Pelican ${{ matrix.panel }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                # The panel release the plugin documents as verified against.
+                panel: ['v1.0.0-beta38']
+                php: ['8.3']
+
+        env:
+            APP_ENV: testing
+            APP_DEBUG: 'false'
+            # A valid key: `base64:` must decode to exactly 32 bytes for the
+            # AES-256-CBC cipher Laravel uses. The previous value
+            # (base64:ThisIsARandomStringForTests12345=) was not even valid base64,
+            # so the Encrypter threw "Unsupported cipher or incorrect key length"
+            # and took every test that rendered an encrypted Livewire snapshot
+            # (for example the Filament interceptor view) down with it.
+            # This is a throwaway test key, decoded from
+            # "ServerExpiryPluginTestKey32Bytes".
+            APP_KEY: base64:U2VydmVyRXhwaXJ5UGx1Z2luVGVzdEtleTMyQnl0ZXM=
+            APP_TIMEZONE: UTC
+            APP_URL: http://localhost/
+            CACHE_STORE: array
+            MAIL_MAILER: array
+            SESSION_DRIVER: array
+            QUEUE_CONNECTION: sync
+            DB_CONNECTION: sqlite
+            DB_DATABASE: testing.sqlite
+
+        steps:
+            -   name: Checkout plugin
+                uses: actions/checkout@v4
+
+            -   name: Checkout Pelican panel
+                uses: actions/checkout@v4
+                with:
+                    repository: pelican-dev/panel
+                    ref: ${{ matrix.panel }}
+                    path: panel
+
+            -   name: Setup PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php }}
+                    # The panel's own composer.json requires ext-intl, ext-json,
+                    # ext-mbstring, ext-pdo and ext-zip. ext-intl is not enabled by
+                    # default on the runners, so `composer install` in the panel
+                    # fails the platform check without it. pdo_sqlite backs the
+                    # sqlite test database.
+                    extensions: bcmath, ctype, curl, dom, fileinfo, filter, gd, intl, json, libxml, mbstring, openssl, pdo, pdo_sqlite, session, tokenizer, xml, xmlwriter, zip
+                    coverage: none
+
+            -   name: Cache Composer packages
+                uses: actions/cache@v4
+                with:
+                    path: ~/.cache/composer
+                    key: ${{ runner.os }}-composer-panel-${{ matrix.panel }}-${{ matrix.php }}-${{ hashFiles('panel/composer.lock') }}
+                    restore-keys: |
+                        ${{ runner.os }}-composer-panel-${{ matrix.panel }}-${{ matrix.php }}-
+
+            -   name: Install panel dependencies
+                working-directory: panel
+                run: |
+                    cp .env.example .env
+                    # .env.example ships `APP_KEY=` (empty). Setting it here as well
+                    # as in the job env removes any dependence on phpdotenv's
+                    # precedence rules, so the Encrypter always has a 32-byte key.
+                    php -r '
+                        $env = file_get_contents(".env");
+                        $env = preg_replace("/^APP_KEY=.*$/m", "APP_KEY=".getenv("APP_KEY"), $env);
+                        file_put_contents(".env", $env);
+                    '
+                    composer install --no-interaction --prefer-dist --no-progress --no-scripts
+
+            -   name: Install the plugin into the panel
+                # Exported from the git tree rather than copied from the working
+                # directory, so the job tests exactly what is committed: a working
+                # copy can carry gitignored local artifacts (.phpunit.cache/,
+                # tools/, recovery migrations) into panel/plugins/server-expiry.
+                # Written to a file first: piping a tar binary through a shell
+                # breaks its header checksums.
+                # The plugin folder must be named after its plugin.json id.
+                run: |
+                    rm -rf panel/plugins/server-expiry
+                    mkdir -p panel/plugins/server-expiry
+                    git archive --format=tar -o /tmp/server-expiry.tar HEAD
+                    tar -xf /tmp/server-expiry.tar -C panel/plugins/server-expiry
+
+            -   name: Verify the plugin needs no composer packages of its own
+                # The plugin declares only a platform requirement, so the panel's
+                # vendor tree already satisfies it. A plugin that starts declaring
+                # packages would be tested against an incomplete environment without
+                # this check, so fail loudly instead.
+                run: |
+                    php -r '
+                        $declared = json_decode(file_get_contents("composer.json"), true)["require"] ?? [];
+                        foreach ($declared as $package => $constraint) {
+                            if ($package === "php" || str_starts_with($package, "ext-") || str_starts_with($package, "lib-")) {
+                                continue;
+                            }
+                            fwrite(STDERR, "::error::The plugin declares the composer package {$package}, but this job does not install it.\n");
+                            exit(1);
+                        }
+                        echo "No additional composer packages declared.\n";
+                    '
+
+            -   name: Prepare the test database
+                # The panel's own CI does exactly this: a fresh sqlite schema plus
+                # the seed data its tests (and its TestCase) rely on. The plugin's
+                # migrations are applied by the feature test bootstrap, because a
+                # fresh panel has no plugin record to migrate from.
+                working-directory: panel
+                run: |
+                    php artisan migrate:fresh --force --seed
+
+            -   name: Place the plugin feature tests in the panel suite
+                # tests/Filament is bound to the panel's IntegrationTestCase by
+                # tests/Pest.php, which supplies the application and database.
+                run: |
+                    mkdir -p panel/tests/Filament/ServerExpiry
+                    cp tests/Filament/ServerExpiry/*.php panel/tests/Filament/ServerExpiry/
+
+            -   name: Run the Filament feature tests
+                # Failure here fails the workflow, which is the point: these tests
+                # are what catch Filament v4 API usage on a v5 panel.
+                working-directory: panel
+                run: vendor/bin/pest tests/Filament/ServerExpiry --do-not-fail-on-phpunit-warning

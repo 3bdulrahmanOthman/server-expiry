@@ -49,6 +49,14 @@ class WebhookDeliveryResource extends Resource
                             ->label('Server ID')
                             ->readOnly()
                             ->disabled(),
+                        // Filament 5.7's Select does NOT use the
+                        // `Forms\Components\Concerns\CanBeReadOnly` trait (TextInput,
+                        // Textarea and DateTimePicker below all do), so calling
+                        // `readOnly()` on it throws
+                        // `BadMethodCallException: Method ...Select::readOnly does not exist`.
+                        // The field is already `disabled()`, which is what actually
+                        // prevents editing; `disabled()` exists on every field via
+                        // `Schemas\Components\Concerns\CanBeDisabled`.
                         Forms\Components\Select::make('status')
                             ->label('Status')
                             ->options([
@@ -56,7 +64,6 @@ class WebhookDeliveryResource extends Resource
                                 'success' => 'Success',
                                 'failed' => 'Failed',
                             ])
-                            ->readOnly()
                             ->disabled(),
                         Forms\Components\TextInput::make('attempt')
                             ->label('Attempt')

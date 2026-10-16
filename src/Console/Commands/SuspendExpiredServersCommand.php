@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Notifications\ServerExpiredNotification;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
+use SquadronStrike\ServerExpiry\Support\SuspensionGuard;
 use Throwable;
 
 class SuspendExpiredServersCommand extends Command
@@ -62,9 +63,13 @@ class SuspendExpiredServersCommand extends Command
         foreach ($expiredServers as $server) {
             $this->line("Suspending Server ID {$server->id} (Name: {$server->name}) - Expired at: {$server->expires_at}");
 
-            // Use the expiration service to check if the server should be suspended due to expiration
-            if (! $this->expirationService->processExpiration($server->id)) {
-                $this->info("   -> Server ID {$server->id} is not eligible for expiration-based suspension (maybe in grace period or auto-suspend disabled).");
+            // Re-validate eligibility under a row lock before acting. The list was
+            // read by a bulk query above, so an administrator may have suspended
+            // this server by hand in the meantime; acting on the stale row would
+            // stamp suspension_reason = 'expiration' over 'manual' and make a
+            // manually suspended server eligible for automatic revival.
+            if (! SuspensionGuard::stillEligibleForExpirationSuspension($server, $this->expirationService)) {
+                $this->info("   -> Server ID {$server->id} is not eligible for expiration-based suspension (in grace period, auto-suspend disabled, or suspended manually since the batch was read).");
 
                 continue;
             }

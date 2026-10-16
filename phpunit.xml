@@ -5,8 +5,21 @@
          colors="true"
          cacheDirectory=".phpunit.cache">
     <testsuites>
+        <!--
+            The plugin's standalone suite. It has no Laravel application: the
+            harness supplies only config() and now() stand-ins, so these tests are
+            dependency-free and run on any PHP the package supports.
+
+            tests/Filament is excluded on purpose. Those are Pest feature tests that
+            must run inside a real Pelican checkout (Laravel application, sqlite
+            database, Filament panels); they are executed by the CI job
+            "Filament feature tests", which copies them into the panel's
+            tests/Filament tree. Running them here would fail on missing Pest and
+            Laravel symbols, not on plugin behaviour.
+        -->
         <testsuite name="Plugin">
             <directory>tests</directory>
+            <exclude>tests/Filament</exclude>
         </testsuite>
     </testsuites>
 </phpunit>
