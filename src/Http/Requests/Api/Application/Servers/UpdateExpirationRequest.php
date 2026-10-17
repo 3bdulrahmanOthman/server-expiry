@@ -12,7 +12,7 @@ use App\Services\Acl\Api\AdminAcl;
  */
 class UpdateExpirationRequest extends ApplicationApiRequest
 {
-    protected string $resource = 'server';
+    protected ?string $resource = 'server';
 
     protected int $permission = AdminAcl::WRITE;
 
