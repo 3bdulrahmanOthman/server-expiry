@@ -205,6 +205,22 @@ jobs:
                 run: |
                     php artisan migrate:fresh --force --seed
 
+            -   name: Install plugin test dependencies
+                # The standalone PHPUnit suite needs its own dev toolchain. It is
+                # installed here so the real-parent compatibility test can run in
+                # the same job that has a real Pelican checkout.
+                run: composer install --no-interaction --prefer-dist --no-progress
+
+            -   name: Verify Application API request inheritance against the real panel
+                # Authoritative inheritance check: PHP loads the real
+                # App\Http\Requests\Api\Application\ApplicationApiRequest from the
+                # panel checkout and all five plugin requests. Contract drift or an
+                # incompatible override fails here, before a deployment can repeat
+                # the fatal error this job exists to prevent.
+                env:
+                    PELICAN_PANEL_PATH: ${{ github.workspace }}/panel
+                run: php vendor/bin/phpunit --no-coverage tests/Source/ApplicationApiRequestInheritanceTest.php
+
             -   name: Place the plugin feature tests in the panel suite
                 # tests/Filament is bound to the panel's IntegrationTestCase by
                 # tests/Pest.php, which supplies the application and database.

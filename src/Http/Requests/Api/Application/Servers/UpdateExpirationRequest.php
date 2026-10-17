@@ -16,7 +16,7 @@ class UpdateExpirationRequest extends ApplicationApiRequest
 
     protected int $permission = AdminAcl::WRITE;
 
-    public function rules()
+    public function rules(): array
     {
         return [
             'expires_at' => 'required_without:permanent|date|after_or_equal:today',
