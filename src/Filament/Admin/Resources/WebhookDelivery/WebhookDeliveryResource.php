@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models\WebhookDelivery;
 use SquadronStrike\ServerExpiry\Infrastructure\Webhooks\WebhookDeliveryService;
+use SquadronStrike\ServerExpiry\Support\WebhookDeliveryClaim;
 use UnitEnum;
 
 class WebhookDeliveryResource extends Resource
@@ -129,9 +130,13 @@ class WebhookDeliveryResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
+                    // "Processing" is a derived state: the row's stored status is
+                    // still `pending` while a worker holds the claim lease.
+                    ->state(fn (WebhookDelivery $record): string => $record->isProcessing() ? 'processing' : $record->status)
                     ->color(fn (string $state): string => match ($state) {
                         'success' => 'success',
                         'failed' => 'danger',
+                        'processing' => 'info',
                         default => 'warning',
                     })
                     ->sortable(),
@@ -163,9 +168,27 @@ class WebhookDeliveryResource extends Resource
                     ->label('Status')
                     ->options([
                         'pending' => 'Pending',
+                        'processing' => 'Processing',
                         'success' => 'Success',
                         'failed' => 'Failed',
-                    ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        // `processing` is derived from a live claim lease, so it
+                        // cannot be matched with a plain status equality.
+                        if ($value === 'processing') {
+                            return $query->where('status', '!=', 'success')
+                                ->whereNotNull('claimed_at')
+                                ->where('claimed_at', '>', now()->subSeconds(WebhookDeliveryClaim::LEASE_SECONDS));
+                        }
+
+                        return $query->where('status', $value);
+                    }),
                 Tables\Filters\SelectFilter::make('endpoint.name')
                     ->label('Endpoint')
                     ->relationship('endpoint', 'name'),
@@ -173,10 +196,15 @@ class WebhookDeliveryResource extends Resource
                     ->label('Retryable')
                     ->queries(
                         fn (Builder $query) => $query->where('status', 'failed')
-                            ->whereRaw('attempt < max_attempts'),
+                            ->whereColumn('attempt', '<', 'max_attempts')
+                            // A row a worker currently owns is already being retried.
+                            ->where(function (Builder $query) {
+                                $query->whereNull('claimed_at')
+                                    ->orWhere('claimed_at', '<=', now()->subSeconds(WebhookDeliveryClaim::LEASE_SECONDS));
+                            }),
                         fn (Builder $query) => $query->where(function (Builder $query) {
                             $query->where('status', '!=', 'failed')
-                                ->orWhereRaw('attempt >= max_attempts');
+                                ->orWhereColumn('attempt', '>=', 'max_attempts');
                         }),
                     ),
             ])
@@ -189,12 +217,16 @@ class WebhookDeliveryResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (WebhookDelivery $record) {
                         if ($record->canRetry()) {
-                            // Reset delivery for retry attempt
+                            // Reset delivery for retry attempt. The claim is
+                            // released too, so a previously abandoned claim cannot
+                            // block the worker from taking it.
                             $record->update([
                                 'status' => 'pending',
                                 'next_attempt_at' => now(),
                                 'processed_at' => null,
                                 'error_message' => null,
+                                'claim_token' => null,
+                                'claimed_at' => null,
                             ]);
 
                             // Attempt delivery
