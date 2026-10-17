@@ -10,6 +10,7 @@ use BackedEnum;
 use Filament\Schemas\Schema;
 use SquadronStrike\ServerExpiry\Application\DTOs\ExpirationView;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
+use SquadronStrike\ServerExpiry\Support\Url;
 
 /**
  * Client-facing "Expiration" page for a single server. Registered on the
@@ -49,12 +50,16 @@ class ExpirySettingsPage extends ServerFormPage
      */
     public function expirationView(): ExpirationView
     {
-        $supportUrl = trim((string) config('server-expiry.support_url', ''));
+        // The config value arrives from .env without passing the settings
+        // form, so enforce the HTTP(S) scheme policy here too. An unusable
+        // scheme yields null, which hides the support action rather than
+        // rendering an unsafe href.
+        $supportUrl = Url::external(config('server-expiry.support_url'));
 
         return ExpirationView::build(
             app(ExpirationService::class),
             $this->getRecord(),
-            $supportUrl !== '' ? $supportUrl : null,
+            $supportUrl,
         );
     }
 

@@ -139,7 +139,12 @@ class EloquentExpirationRepository implements ExpirationRepository
         // reads as "48" — only true/false/null are special-cased by env()), so the
         // infrastructure boundary normalizes to int before the strict domain
         // contract, mirroring the intval normalization of warning_days_notice.
-        $hours = (int) config('server-expiry.grace_period_hours', 0);
+        //
+        // Negative values are clamped rather than propagated: an operator typo
+        // or a bad .env value must disable the grace period, not abort the
+        // expiry command with an exception (ExpirationView already reads the
+        // same setting as max(0, ...)).
+        $hours = max(0, (int) config('server-expiry.grace_period_hours', 0));
 
         return GracePeriod::fromHours($hours);
     }
@@ -147,18 +152,48 @@ class EloquentExpirationRepository implements ExpirationRepository
     /**
      * Get the warning thresholds configuration.
      *
+     * The value may arrive in any of the shapes the panel can produce: the
+     * config file normalizes .env with intval(), the settings form stores a raw
+     * "7,3,1" string, and a runtime config() override can hand over anything.
+     * Normalization therefore happens here — the value is coerced to a list of
+     * unique, positive, ascending integers, and unusable entries are dropped
+     * instead of throwing.
+     *
      * @return WarningThreshold[] Array of warning thresholds, sorted ascending
      */
     public function getWarningThresholds(): array
     {
         $days = config('server-expiry.warning_days_notice', [7, 3, 1]);
-        // Drop zero/negative entries so a misconfigured value (e.g. empty env
-        // string collapsing to [0]) cannot throw in WarningThreshold::fromDays
-        $days = array_values(array_filter($days, fn (int $day) => $day > 0));
-        $thresholds = array_map(fn (int $day) => WarningThreshold::fromDays($day), $days);
-        sort($thresholds); // Sort ascending for consistent processing
 
-        return $thresholds;
+        if (! is_array($days)) {
+            // Accept a comma-separated scalar (the shape the settings form
+            // writes to .env) but treat anything else as "no thresholds".
+            $days = is_string($days) ? explode(',', $days) : [];
+        }
+
+        $normalized = [];
+
+        foreach ($days as $day) {
+            // A threshold must be a whole, positive number. Rejecting
+            // non-numeric and partially numeric strings keeps "abc", "" and
+            // "7 days" out rather than silently coercing them to 0 or 7.
+            if (! is_numeric($day)) {
+                continue;
+            }
+
+            $day = (int) $day;
+
+            if ($day > 0) {
+                $normalized[$day] = $day;
+            }
+        }
+
+        ksort($normalized); // Ascending for consistent processing
+
+        return array_map(
+            static fn (int $day) => WarningThreshold::fromDays($day),
+            array_values($normalized)
+        );
     }
 
     /**

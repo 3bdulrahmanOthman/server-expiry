@@ -267,7 +267,10 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('server-expiry::strings.settings_webhook_timeout_helper'))
                         ->numeric()
                         ->minValue(1)
-                        ->maxValue(120)
+                        // Bounded to one minute: retries run sequentially under a
+                        // scheduler mutex, so a larger per-request timeout can stall
+                        // the whole retry pass. See WebhookDeliveryService::timeoutSeconds().
+                        ->maxValue(60)
                         ->default(fn () => config('server-expiry.webhook_timeout_seconds', 10)),
                     TextInput::make('webhook_backoff_base_seconds')
                         ->label(trans('server-expiry::strings.settings_webhook_backoff_label'))
@@ -286,6 +289,12 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                         ->label(trans('server-expiry::strings.settings_support_url_label'))
                         ->helperText(trans('server-expiry::strings.settings_support_url_helper'))
                         ->url()
+                        // Filament's url() accepts no protocol list, and the
+                        // Laravel `url` rule it adds allows a large protocol
+                        // allowlist (data:, file:, blob:, mailto:, ftp:, ...).
+                        // Restrict the stored value to HTTP(S) so a support
+                        // link always points at a web URL.
+                        ->rule('url:http,https')
                         ->nullable()
                         ->maxLength(2048)
                         ->default(fn () => config('server-expiry.support_url', '')),

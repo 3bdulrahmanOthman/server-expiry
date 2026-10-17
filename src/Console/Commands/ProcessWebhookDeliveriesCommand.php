@@ -26,9 +26,11 @@ class ProcessWebhookDeliveriesCommand extends Command
 
     public function handle(): int
     {
+        // The count includes deliveries closed out as abandoned (a worker died
+        // holding the final attempt), which are not "due" retries.
         $processed = $this->deliveryService->processPendingDeliveries();
 
-        $this->info("Processed {$processed} due webhook delivery(ies).");
+        $this->info("Processed {$processed} webhook delivery(ies).");
 
         return self::SUCCESS;
     }

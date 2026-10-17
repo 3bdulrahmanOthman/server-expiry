@@ -7,6 +7,7 @@ namespace SquadronStrike\ServerExpiry\Infrastructure\Webhooks\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use SquadronStrike\ServerExpiry\Support\WebhookDeliveryClaim;
 
 /**
  * Eloquent model for tracking webhook delivery attempts.
@@ -50,6 +51,8 @@ class WebhookDelivery extends Model
         'queued_at',
         'processed_at',
         'next_attempt_at',
+        'claim_token',
+        'claimed_at',
     ];
 
     /**
@@ -65,6 +68,7 @@ class WebhookDelivery extends Model
         'queued_at' => 'datetime',
         'processed_at' => 'datetime',
         'next_attempt_at' => 'datetime',
+        'claimed_at' => 'datetime',
     ];
 
     /**
@@ -104,7 +108,30 @@ class WebhookDelivery extends Model
     }
 
     /**
+     * Whether a live worker currently holds this delivery's claim.
+     *
+     * "Processing" is a derived state rather than a `status` value: the stored
+     * status is `pending` while a worker owns the row, and the claim lease is
+     * what distinguishes "in flight" from "abandoned".
+     */
+    public function isProcessing(): bool
+    {
+        return $this->status !== 'success' && WebhookDeliveryClaim::isClaimed($this->claimed_at, now());
+    }
+
+    /**
+     * Whether this row's claim has been abandoned by its worker.
+     */
+    public function isClaimStale(): bool
+    {
+        return $this->claimed_at !== null && WebhookDeliveryClaim::isStale($this->claimed_at, now());
+    }
+
+    /**
      * Check if the delivery can be retried.
+     *
+     * `attempt` counts attempts already consumed, so a failed row still has
+     * budget when its count is below the limit.
      *
      * @return bool True if delivery can be retried, false otherwise
      */

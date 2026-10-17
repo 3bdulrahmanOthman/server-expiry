@@ -5,6 +5,61 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Crash-safe webhook delivery claims.** A delivery is claimed with an atomic
+  conditional UPDATE before the HTTP request, so two overlapping workers cannot
+  both send it. The claim carries a random token and a five-minute lease; a
+  worker that lost its lease can no longer overwrite the outcome of the worker
+  that took over.
+- **Recovery for abandoned final attempts.** A worker that died while holding a
+  delivery's last permitted attempt used to leave the row permanently stranded
+  (never retried, never finalized, failure never counted). The scheduler now
+  closes those rows out as failed exactly once and updates the endpoint's
+  failure counter in the same transaction.
+- `X-Webhook-Delivery-ID` header: a stable per-delivery identifier repeated on
+  every retry, so receivers can deduplicate the duplicate sends that
+  at-least-once delivery can produce.
+- Integration coverage for the delivery lifecycle (claims, leases, recovery,
+  retry budget, rollbacks, stale workers) and for the configuration and URL
+  boundaries.
+
+### Changed
+- The webhook HTTP timeout is capped at **60 seconds** in both the settings form
+  and the configuration boundary, so one hung endpoint cannot stall a whole
+  sequential retry pass.
+- The support URL setting is restricted to `http`/`https` at both the settings
+  form and the configuration-use boundary; other schemes hide the owner-facing
+  action instead of rendering an unsafe link.
+- Delivery finalization and the endpoint failure counter are committed in one
+  short transaction (with no network I/O inside it), and a success only resets
+  the endpoint counters when the worker still owns the claim.
+- The admin Deliveries table derives a **Processing** state from a live claim,
+  and its Retry filter is claim-aware.
+
+### Fixed
+- `max_attempts` was off by one: rows started at `attempt = 1` and were
+  incremented again before the first send, so `max_attempts = 3` permitted only
+  two sends and `max_attempts = 1` permitted none (and could never reach a
+  terminal state). `attempt` now counts attempts already consumed and
+  `max_attempts` is the exact number of HTTP sends, including the initial one.
+- A success whose endpoint write failed could be recorded as a success the
+  endpoint never counted; the outcome and the counter now roll back together.
+- `SERVER_EXPIRY_GRACE_HOURS` values that could not be parsed as a non-negative
+  integer now clamp to `0` instead of crashing the expiration command.
+- Warning thresholds now accept the comma-separated form written by the
+  settings UI and ignore duplicate, non-numeric or non-positive entries instead
+  of throwing.
+
+### Upgrade Notes (v2.1.x → v2.2.0)
+
+- Migration `009_add_claim_to_webhook_deliveries_table` adds the nullable
+  `claim_token` / `claimed_at` columns and an index to `webhook_deliveries`.
+  Existing rows are preserved; nothing is re-sent by the upgrade.
+- `X-Webhook-Delivery-ID` is added to requests; the payload, method and other
+  headers are unchanged.
+
 ## [2.1.0] - 2026-09-18
 
 ### Added
