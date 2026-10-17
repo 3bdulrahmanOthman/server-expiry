@@ -16,7 +16,7 @@ class ExtendExpirationRequest extends ApplicationApiRequest
 
     protected int $permission = AdminAcl::WRITE;
 
-    public function rules()
+    public function rules(): array
     {
         return [
             'hours' => 'required|integer|min:1',

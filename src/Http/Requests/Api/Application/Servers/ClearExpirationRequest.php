@@ -16,7 +16,7 @@ class ClearExpirationRequest extends ApplicationApiRequest
 
     protected int $permission = AdminAcl::WRITE;
 
-    public function rules()
+    public function rules(): array
     {
         return [];
     }

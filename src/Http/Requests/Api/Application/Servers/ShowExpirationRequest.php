@@ -16,7 +16,7 @@ class ShowExpirationRequest extends ApplicationApiRequest
 
     protected int $permission = AdminAcl::READ;
 
-    public function rules()
+    public function rules(): array
     {
         return [];
     }
