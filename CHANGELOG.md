@@ -5,7 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.1] - 2026-10-18
+
+This is the first published release of the v2.2 line; it includes the v2.2.0
+webhook work plus the Application API compatibility fixes.
 
 ### Added
 - **Crash-safe webhook delivery claims.** A delivery is claimed with an atomic
@@ -51,8 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Warning thresholds now accept the comma-separated form written by the
   settings UI and ignore duplicate, non-numeric or non-positive entries instead
   of throwing.
+- Application API request classes now declare the parent-compatible
+  `?string $resource` property and `rules(): array` return type required by
+  Pelican's `ApplicationApiRequest`, eliminating the inheritance fatals that
+  broke the Application API endpoints.
 
-### Upgrade Notes (v2.1.x → v2.2.0)
+### Upgrade Notes (v2.1.x → v2.2.1)
 
 - Migration `009_add_claim_to_webhook_deliveries_table` adds the nullable
   `claim_token` / `claimed_at` columns and an index to `webhook_deliveries`.
