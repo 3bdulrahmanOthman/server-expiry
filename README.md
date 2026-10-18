@@ -254,6 +254,11 @@ the consolidated command is what the scheduler runs.
 
 - This is the first published release of the v2.2 line and includes the
   Application API request inheritance fixes.
+  PR #10 adds `rules(): array` to all five Application API request classes and
+  verifies the inherited contract against the real Pelican beta38 parent. Its
+  regression coverage includes a source-level declaration guard, a runtime
+  harness, and negative-control fixtures; the PR reports 305 tests / 1,006
+  assertions across PHP 8.3, 8.4 and 8.5.
 - Download: [release notes](https://github.com/3bdulrahmanOthman/server-expiry/releases/tag/v2.2.1)
   · [server-expiry-v2.2.1.zip](https://github.com/3bdulrahmanOthman/server-expiry/releases/download/v2.2.1/server-expiry-v2.2.1.zip).
 - Install the new release over the existing `plugins/server-expiry/` folder and
