@@ -9,7 +9,7 @@
 
 </div>
 
-**Release status:** v2.2.2 is prepared for publication. The latest public release is [v2.1.0](https://github.com/3bdulrahmanOthman/server-expiry/releases/tag/v2.1.0); see the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry).
+**Release status:** v2.2.3 is the current version. See the [releases page](https://github.com/3bdulrahmanOthman/server-expiry/releases) and the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry).
 
 **Server Expiry gives every Pelican Panel server a lifecycle.** Set an expiry
 date, warn owners before it lapses, grant a grace period, suspend automatically
@@ -250,7 +250,7 @@ the consolidated command is what the scheduler runs.
 
 ## Upgrade
 
-### v2.1.x → v2.2.2
+### v2.1.x → v2.2.3
 
 - This is the first release of the v2.2 line and includes the
   Application API request inheritance fixes.
@@ -259,8 +259,8 @@ the consolidated command is what the scheduler runs.
   regression coverage includes a source-level declaration guard, a runtime
   inheritance check, and negative-control fixtures; the PR reports 305 tests /
   1,006 assertions across PHP 8.3, 8.4 and 8.5.
-- Publication status: v2.2.2 is awaiting GitHub/Hub publication; use the
-  [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry) for the
+- Publication status: v2.2.3 is packaged for GitHub and Hub publication; use
+  the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry) for the
   current public release.
 - Install the new release over the existing `plugins/server-expiry/` folder and
   run the panel's plugin update, or use the **Update** action in
@@ -345,7 +345,7 @@ Build the install archive from the allowlist instead of zipping the working
 tree:
 
 ```bash
-php scripts/package-release.php server-expiry-2.2.2.zip
+php scripts/package-release.php server-expiry-2.2.3.zip
 ```
 
 The target directory must already exist. The packager only adds the runtime

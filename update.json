@@ -1,7 +1,7 @@
 {
     "*": {
-        "version": "2.2.2",
-        "download_url": "https://github.com/3bdulrahmanOthman/server-expiry/releases/download/v2.2.2/server-expiry-v2.2.2.zip",
-        "sha256": "d9dca82cd27d0db19c1e24708accb02caac2640a44d8440b046eaff2f73e61b6"
+        "version": "2.2.3",
+        "download_url": "https://github.com/3bdulrahmanOthman/server-expiry/releases/download/v2.2.3/server-expiry-v2.2.3.zip",
+        "sha256": "6d41b8f546c11421438f2bc33381c4f1fd2138f10b26fecf9844dccca0f02f0d"
     }
 }
