@@ -9,7 +9,7 @@
 
 </div>
 
-**Latest release:** [v2.2.1](https://github.com/3bdulrahmanOthman/server-expiry/releases/tag/v2.2.1) · [download the release ZIP](https://github.com/3bdulrahmanOthman/server-expiry/releases/download/v2.2.1/server-expiry-v2.2.1.zip)
+**Release status:** v2.2.1 is prepared and awaiting publication. The latest public release is [v2.1.0](https://github.com/3bdulrahmanOthman/server-expiry/releases/tag/v2.1.0); see the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry).
 
 **Server Expiry gives every Pelican Panel server a lifecycle.** Set an expiry
 date, warn owners before it lapses, grant a grace period, suspend automatically
@@ -259,8 +259,9 @@ the consolidated command is what the scheduler runs.
   regression coverage includes a source-level declaration guard, a runtime
   harness, and negative-control fixtures; the PR reports 305 tests / 1,006
   assertions across PHP 8.3, 8.4 and 8.5.
-- Download: [release notes](https://github.com/3bdulrahmanOthman/server-expiry/releases/tag/v2.2.1)
-  · [server-expiry-v2.2.1.zip](https://github.com/3bdulrahmanOthman/server-expiry/releases/download/v2.2.1/server-expiry-v2.2.1.zip).
+- Publication status: v2.2.1 is awaiting GitHub/Hub publication; use the
+  [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry) for the
+  current public release.
 - Install the new release over the existing `plugins/server-expiry/` folder and
   run the panel's plugin update, or use the **Update** action in
   *Admin Area → Plugins*.
