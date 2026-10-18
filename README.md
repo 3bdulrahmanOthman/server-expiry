@@ -257,8 +257,8 @@ the consolidated command is what the scheduler runs.
   PR #10 adds `rules(): array` to all five Application API request classes and
   verifies the inherited contract against the real Pelican beta38 parent. Its
   regression coverage includes a source-level declaration guard, a runtime
-  harness, and negative-control fixtures; the PR reports 305 tests / 1,006
-  assertions across PHP 8.3, 8.4 and 8.5.
+  inheritance check, and negative-control fixtures; the PR reports 305 tests /
+  1,006 assertions across PHP 8.3, 8.4 and 8.5.
 - Publication status: v2.2.2 is awaiting GitHub/Hub publication; use the
   [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry) for the
   current public release.
@@ -334,9 +334,28 @@ Pelican installation. They are not part of the standalone suite; the CI
 workflow copies them into the panel's `tests/Filament` tree and runs them
 against Pelican v1.0.0-beta38.
 
+The inheritance test loads the real `ApplicationApiRequest` when
+`PELICAN_PANEL_PATH` points at a panel checkout, and falls back to the recorded
+contract fixture otherwise. It runs in-process, so it needs neither a
+subprocess nor a writable temporary directory.
+
+### Release archive
+
+Build the install archive from the allowlist instead of zipping the working
+tree:
+
+```bash
+php scripts/package-release.php server-expiry-2.2.2.zip
+```
+
+The target directory must already exist. The packager only adds the runtime
+plugin files and refuses to produce an archive containing `tests/`, `tools/`,
+`vendor/`, CI files or other development paths. It prints the entry list, byte
+size and SHA-256.
+
 ### Testing status
 
-- **Standalone suite** — 293 tests, 751 assertions (PHPUnit, no Laravel
+- **Standalone suite** — 304 tests, 879 assertions (PHPUnit, no Laravel
   application required).
 - **Filament/Pest integration suite** — 42 tests, 190 assertions, executed
   against Pelican v1.0.0-beta38 with PHP 8.3 and SQLite.

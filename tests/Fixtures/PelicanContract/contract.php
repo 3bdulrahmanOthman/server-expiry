@@ -7,9 +7,9 @@ declare(strict_types=1);
  * App\Http\Requests\Api\Application\ApplicationApiRequest at the Pelican version
  * this plugin targets.
  *
- * The harness reflects the loaded parent (fixture or real) and compares it to
- * this array. A drift here means the target panel's contract changed and the
- * plugin's request classes must be audited again.
+ * The inheritance test reflects the loaded parent (fixture or real) and
+ * compares it to this array. A drift here means the target panel's contract
+ * changed and the plugin's request classes must be audited again.
  */
 return [
     'source' => [

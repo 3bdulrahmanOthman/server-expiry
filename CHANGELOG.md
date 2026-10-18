@@ -16,13 +16,23 @@ tag. There are no application code changes.
 - The release is published as `2.2.2` because the `v2.2.1` immutable release
   tag could not be reused.
 
+### Fixed
+- The test suite no longer calls `proc_open`, `fwrite`, `unlink` or `mkdir`.
+  The real-parent inheritance check now loads the parent in-process and gates
+  each request class against the audited declarations before autoloading it, so
+  the suite runs in environments that forbid process execution and filesystem
+  writes without weakening the contract coverage.
+- Release archives are built from an explicit allowlist
+  (`scripts/package-release.php`) that refuses `tests/`, `tools/`, `vendor/`,
+  CI files and other development paths.
+
 ### Included from v2.2.1
 - Application API request classes now declare the parent-compatible
   `?string $resource` property and `rules(): array` return type required by
   Pelican's `ApplicationApiRequest`, eliminating the inheritance fatals (PR
   #10). Regression coverage includes a source-level declaration guard, a
-  runtime harness against the real Pelican parent, and negative-control
-  fixtures.
+  runtime inheritance check against the real Pelican parent, and
+  negative-control fixtures.
 - The previously unreleased v2.2.0 webhook hardening: atomic delivery claims
   with a five-minute lease, recovery of abandoned final attempts, the
   `X-Webhook-Delivery-ID` header, timeout/URL boundary fixes, and the

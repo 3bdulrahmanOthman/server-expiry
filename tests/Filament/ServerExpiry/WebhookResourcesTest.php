@@ -264,26 +264,10 @@ it('renders the endpoint edit and view pages for a stored endpoint', function ()
     livewire(ViewWebhookEndpoint::class, ['record' => $endpoint->getRouteKey()])->assertSuccessful();
 });
 
-it('diagnoses route and resource registration state', function () {
+it('registers the endpoint resource on the admin panel', function () {
     $panel = Filament::getPanel('admin');
 
-    $expected = 'filament.admin.resources.server-expiry.webhook-endpoints.index';
-
-    $state = [
-        'resource_registered_on_panel' => in_array(WebhookEndpointResource::class, $panel->getResources(), true),
-        'resource_in_getresources_count' => count($panel->getResources()),
-        'relative_route_name' => WebhookEndpointResource::getRelativeRouteName($panel),
-        'route_exists' => app('router')->has($expected),
-        'route_names_is_registered' => in_array(
-            $expected,
-            array_map(fn ($r) => $r->getName(), app('router')->getRoutes()->getRoutes()),
-            true
-        ),
-    ];
-
-    fwrite(STDERR, "\nROUTE_DIAG ".json_encode($state, JSON_PRETTY_PRINT)."\n");
-
-    expect($state['resource_registered_on_panel'])->toBeTrue();
+    expect(in_array(WebhookEndpointResource::class, $panel->getResources(), true))->toBeTrue();
 });
 
 it('resolves the endpoint resource to a real admin URL', function () {
@@ -295,30 +279,8 @@ it('resolves the endpoint resource to a real admin URL', function () {
     // (the owner-facing one) which would make the assertion depend on test order.
     $panel = Filament::getPanel('admin');
     $baseName = WebhookEndpointResource::getRouteBaseName($panel);
-    $routeName = "{$baseName}.index";
 
-    $url = null;
-    $thrown = null;
-
-    try {
-        $url = WebhookEndpointResource::getUrl('index', panel: 'admin');
-    } catch (Throwable $e) {
-        $thrown = $e::class.': '.$e->getMessage();
-    }
-
-    fwrite(STDERR, "\nURL_DIAG ".json_encode([
-        'base_name' => $baseName,
-        'route_name' => $routeName,
-        'current_panel_id' => Filament::getCurrentPanel()?->getId(),
-        'route_collection_has_name' => in_array(
-            $routeName,
-            array_map(fn ($r) => $r->getName(), app('router')->getRoutes()->getRoutes()),
-            true
-        ),
-        'router_has' => app('router')->has($routeName),
-        'resolved_url' => $url,
-        'thrown' => $thrown,
-    ], JSON_PRETTY_PRINT)."\n");
+    $url = WebhookEndpointResource::getUrl('index', panel: 'admin');
 
     expect($baseName)->toBe('filament.admin.resources.server-expiry.webhook-endpoints');
     expect($url)->toContain('/admin/server-expiry/webhook-endpoints');
