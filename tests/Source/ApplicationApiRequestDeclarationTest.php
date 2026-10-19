@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Supplemental source-level guard for the Application API request contract.
  *
- * The authoritative check is the runtime harness
+ * The authoritative check is the runtime inheritance test
  * (tests/Source/ApplicationApiRequestInheritanceTest.php), because PHP itself
  * enforces property-type invariance and method-signature compatibility. This
  * tokenizer test exists so a missing return type or a narrowed property type is

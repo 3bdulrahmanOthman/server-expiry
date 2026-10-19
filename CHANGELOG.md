@@ -5,24 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.2.2] - 2026-10-18
+## [2.2.3] - 2026-10-19
 
 Patch release that republishes the already-merged v2.2.1 content under a new
-tag. There are no application code changes.
+tag and makes the test suite acceptable to the Pelican Hub source scan. There
+are no application code changes.
 
 ### Changed
 - `plugin.json` now points `update_url` at the Pelican Hub feed,
   `https://hub.pelican.dev/plugins/server-expiry/update.json`.
-- The release is published as `2.2.2` because the `v2.2.1` immutable release
-  tag could not be reused.
+- `v2.2.2` was never published: its draft release predates the Hub scan fix,
+  so this release supersedes it.
+
+### Fixed
+- The test suite no longer calls `proc_open`, `fwrite`, `unlink` or `mkdir`.
+  The real-parent inheritance check now loads the parent in-process and gates
+  each request class against the audited declarations before autoloading it, so
+  the suite runs in environments that forbid process execution and filesystem
+  writes without weakening the contract coverage.
+- Release archives are built from an explicit allowlist
+  (`scripts/package-release.php`) that refuses `tests/`, `tools/`, `vendor/`,
+  CI files and other development paths.
 
 ### Included from v2.2.1
 - Application API request classes now declare the parent-compatible
   `?string $resource` property and `rules(): array` return type required by
   Pelican's `ApplicationApiRequest`, eliminating the inheritance fatals (PR
   #10). Regression coverage includes a source-level declaration guard, a
-  runtime harness against the real Pelican parent, and negative-control
-  fixtures.
+  runtime inheritance check against the real Pelican parent, and
+  negative-control fixtures.
 - The previously unreleased v2.2.0 webhook hardening: atomic delivery claims
   with a five-minute lease, recovery of abandoned final attempts, the
   `X-Webhook-Delivery-ID` header, timeout/URL boundary fixes, and the

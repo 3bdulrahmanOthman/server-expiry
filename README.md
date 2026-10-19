@@ -9,7 +9,7 @@
 
 </div>
 
-**Release status:** v2.2.2 is prepared for publication. The latest public release is [v2.1.0](https://github.com/3bdulrahmanOthman/server-expiry/releases/tag/v2.1.0); see the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry).
+**Release status:** v2.2.3 is the current version. See the [releases page](https://github.com/3bdulrahmanOthman/server-expiry/releases) and the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry).
 
 **Server Expiry gives every Pelican Panel server a lifecycle.** Set an expiry
 date, warn owners before it lapses, grant a grace period, suspend automatically
@@ -250,17 +250,17 @@ the consolidated command is what the scheduler runs.
 
 ## Upgrade
 
-### v2.1.x → v2.2.2
+### v2.1.x → v2.2.3
 
 - This is the first release of the v2.2 line and includes the
   Application API request inheritance fixes.
   PR #10 adds `rules(): array` to all five Application API request classes and
   verifies the inherited contract against the real Pelican beta38 parent. Its
   regression coverage includes a source-level declaration guard, a runtime
-  harness, and negative-control fixtures; the PR reports 305 tests / 1,006
-  assertions across PHP 8.3, 8.4 and 8.5.
-- Publication status: v2.2.2 is awaiting GitHub/Hub publication; use the
-  [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry) for the
+  inheritance check, and negative-control fixtures; the PR reports 305 tests /
+  1,006 assertions across PHP 8.3, 8.4 and 8.5.
+- Publication status: v2.2.3 is packaged for GitHub and Hub publication; use
+  the [Pelican Hub page](https://hub.pelican.dev/plugins/server-expiry) for the
   current public release.
 - Install the new release over the existing `plugins/server-expiry/` folder and
   run the panel's plugin update, or use the **Update** action in
@@ -334,9 +334,28 @@ Pelican installation. They are not part of the standalone suite; the CI
 workflow copies them into the panel's `tests/Filament` tree and runs them
 against Pelican v1.0.0-beta38.
 
+The inheritance test loads the real `ApplicationApiRequest` when
+`PELICAN_PANEL_PATH` points at a panel checkout, and falls back to the recorded
+contract fixture otherwise. It runs in-process, so it needs neither a
+subprocess nor a writable temporary directory.
+
+### Release archive
+
+Build the install archive from the allowlist instead of zipping the working
+tree:
+
+```bash
+php scripts/package-release.php server-expiry-2.2.3.zip
+```
+
+The target directory must already exist. The packager only adds the runtime
+plugin files and refuses to produce an archive containing `tests/`, `tools/`,
+`vendor/`, CI files or other development paths. It prints the entry list, byte
+size and SHA-256.
+
 ### Testing status
 
-- **Standalone suite** — 293 tests, 751 assertions (PHPUnit, no Laravel
+- **Standalone suite** — 304 tests, 879 assertions (PHPUnit, no Laravel
   application required).
 - **Filament/Pest integration suite** — 42 tests, 190 assertions, executed
   against Pelican v1.0.0-beta38 with PHP 8.3 and SQLite.

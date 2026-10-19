@@ -190,7 +190,7 @@ jobs:
                             if ($package === "php" || str_starts_with($package, "ext-") || str_starts_with($package, "lib-")) {
                                 continue;
                             }
-                            fwrite(STDERR, "::error::The plugin declares the composer package {$package}, but this job does not install it.\n");
+                            echo "::error::The plugin declares the composer package {$package}, but this job does not install it.\n";
                             exit(1);
                         }
                         echo "No additional composer packages declared.\n";
