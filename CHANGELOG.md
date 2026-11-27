@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Settings form fields no longer declare `->default(...)`, matching the
+  convention Pelican's official plugins adopted for panel v1.0.0-rc.3
+  (`pelican/plugins@c2c6547`). The panel fills the settings modal from
+  `getSettingsFormData()`, so defaults were redundant; values shown and
+  saved are unchanged on every supported panel version.
+
+### Compatibility
+- Verified against Pelican Panel v1.0.0-rc.3 and v1.0.0-rc.4: the plugin
+  manifest schema, plugin api version 1, the `HasPluginSettings` contract,
+  the `CanCustomize*` registration hooks, `SuspensionService`, and the
+  Application API request base the plugin builds on are unchanged or
+  signature-compatible. Minimum supported panel version remains
+  `1.0.0-beta38` (`panel_version: ^1.0.0-beta38`).
+
 ## [2.2.3] - 2026-10-19
 
 Patch release that republishes the already-merged v2.2.1 content under a new
