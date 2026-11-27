@@ -19,6 +19,7 @@ use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
+use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 use SquadronStrike\ServerExpiry\Support\SuspensionGuard;
 use Throwable;
@@ -139,10 +140,10 @@ class ProcessServerExpirationCommand extends Command
             try {
                 Event::dispatch(new ExpirationWarning(
                     $server->id,
-                    \SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold::fromDays($warningThreshold),
+                    WarningThreshold::fromDays($warningThreshold),
                     new \DateTimeImmutable('now')
                 ));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::error("Server Expiry Plugin: Failed to dispatch ExpirationWarning event for server ID {$server->id}: {$e->getMessage()}");
                 // We still claimed the notification, so we need to mark it as failed to allow retry
                 $this->markNotificationAsFailed(
@@ -228,7 +229,7 @@ class ProcessServerExpirationCommand extends Command
                     $server->id,
                     new \DateTimeImmutable('now')
                 ));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // If the event dispatch fails, we mark the notification as failed and continue
                 $this->markNotificationAsFailed(
                     $server->id,
@@ -271,6 +272,17 @@ class ProcessServerExpirationCommand extends Command
             // sync call above threw.
             $server->refresh();
 
+            // Only an expiration suspension gets the expiration event: an admin
+            // suspending the server by hand in this window must not produce a
+            // server.expiry.suspended event.
+            if ($server->isSuspended() && $server->suspension_reason !== 'expiration') {
+                $this->info(
+                    "   -> Server ID {$server->id} is suspended but not by expiration (reason: {$server->suspension_reason}); skipping the expiration event."
+                );
+
+                continue;
+            }
+
             if (! $server->isSuspended()) {
                 Log::error(
                     "Server Expiry Plugin: Failed to suspend server ID {$server->id} ('{$server->name}')"
@@ -293,7 +305,7 @@ class ProcessServerExpirationCommand extends Command
                     $server->id,
                     new \DateTimeImmutable('now')
                 ));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::error("Server Expiry Plugin: Failed to dispatch ServerSuspendedByExpiration event for server ID {$server->id}: {$e->getMessage()}");
                 // We still claimed the notification, so we need to mark it as failed to allow retry
                 $this->markNotificationAsFailed(

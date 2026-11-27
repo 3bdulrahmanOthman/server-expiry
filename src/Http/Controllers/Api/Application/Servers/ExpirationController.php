@@ -10,7 +10,6 @@ use App\Models\Server;
 use App\Services\Servers\SuspensionService;
 use DateTimeInterface;
 use Illuminate\Support\Facades\Log;
-use Throwable;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\InvalidExpirationOperation;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
@@ -19,6 +18,7 @@ use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ExtendExpi
 use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\RenewExpirationRequest;
 use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ShowExpirationRequest;
 use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\UpdateExpirationRequest;
+use Throwable;
 
 /**
  * Handles API endpoints for server expiration management.

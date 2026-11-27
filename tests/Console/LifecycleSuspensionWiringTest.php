@@ -255,7 +255,7 @@ final class LifecycleSuspensionWiringTest extends TestCase
             (int) $handlePosition
         );
         $refreshPosition = strpos($command, '$server->refresh();', (int) $handlePosition);
-        $gatePosition = strpos($command, 'if (! $server->isSuspended())');
+        $gatePosition = strpos($command, 'if (! $server->isSuspended())', (int) $refreshPosition);
         $dispatchPosition = strpos($command, 'Event::dispatch(new ServerSuspendedByExpiration(');
 
         $this->assertNotFalse($handlePosition);
@@ -271,6 +271,25 @@ final class LifecycleSuspensionWiringTest extends TestCase
             $refreshPosition,
             $handlePosition,
             'The state re-read must come after the suspension attempt'
+        );
+    }
+
+    public function test_the_suspended_event_only_fires_for_expiration_suspensions(): void
+    {
+        $command = $this->source(self::COMMAND);
+
+        $refreshPosition = strpos($command, '$server->refresh();', (int) strpos($command, 'SuspensionService::handle'));
+        $reasonPosition = strpos($command, "\$server->suspension_reason !== 'expiration'", (int) $refreshPosition);
+        $dispatchPosition = strpos($command, 'Event::dispatch(new ServerSuspendedByExpiration(');
+
+        $this->assertNotFalse(
+            $reasonPosition,
+            'After the refresh, an expiration suspension must be confirmed by suspension_reason before the event'
+        );
+        $this->assertLessThan(
+            $dispatchPosition,
+            $reasonPosition,
+            'A server suspended by hand in the suspension window must never emit server.expiry.suspended'
         );
     }
 
