@@ -165,23 +165,38 @@ class WebhookDeliveryService
             return;
         }
 
-        // Create delivery record. `attempt` counts attempts already consumed, so a
-        // new row starts at 0 and the first claim's increment makes it 1 — which is
-        // what makes the initial inline send count against max_attempts exactly once.
+        // Create the delivery record already claimed by this process, then send
+        // inline. The claim predicate deliberately refuses fresh unclaimed rows
+        // (a scheduler pass must never steal a row from the inline attempt that
+        // owns it), so a row inserted unclaimed could never be claimed by its own
+        // creator either — the initial send never happened and every delivery sat
+        // until the abandoned-row recovery ran one lease (300s) later. Inserting
+        // the claim with the row keeps that protection while letting the inline
+        // send proceed immediately.
+        //
+        // `attempt` counts attempts already consumed, so the initial inline send
+        // consumes attempt 1 here — which is what makes max_attempts the exact
+        // number of sends, the initial one included. If this process dies after
+        // the insert, the claim lease expires and the normal recovery claims the
+        // row like any other abandoned send.
+        $token = WebhookDeliveryClaim::newToken();
+
         $delivery = WebhookDelivery::create([
             'webhook_endpoint_id' => $endpoint->id,
             'event_type' => $eventType,
             'server_id' => (string) $serverId,
             'payload' => $payload,
-            'attempt' => 0,
+            'attempt' => 1,
             'max_attempts' => $this->maxAttempts(),
             'status' => 'pending',
             'queued_at' => now(),
             'next_attempt_at' => now(), // Process immediately
+            'claim_token' => $token,
+            'claimed_at' => now(),
         ]);
 
         // Attempt delivery
-        $this->attemptDelivery($delivery);
+        $this->attemptDelivery($delivery, $token);
     }
 
     /**
@@ -190,11 +205,13 @@ class WebhookDeliveryService
      * @param  WebhookDelivery  $delivery  The delivery record to process
      * @return bool True when this worker owned the claim and attempted the send.
      */
-    public function attemptDelivery(WebhookDelivery $delivery): bool
+    public function attemptDelivery(WebhookDelivery $delivery, ?string $preclaimedToken = null): bool
     {
         // Take ownership before anything is sent. A losing racer gets null here
-        // and must not send: another worker owns this delivery.
-        $token = $this->claim($delivery);
+        // and must not send: another worker owns this delivery. A freshly queued
+        // row arrives already claimed by its creator (see queueDelivery); retries
+        // and abandoned-row recovery claim through the guarded UPDATE.
+        $token = $preclaimedToken ?? $this->claim($delivery);
 
         if ($token === null) {
             return false;
@@ -248,7 +265,12 @@ class WebhookDeliveryService
             // Make the HTTP request
             $response = Http::timeout($this->timeoutSeconds())
                 ->withHeaders($headers)
-                ->post($endpoint->url, $jsonPayload);
+                // The signature above covers $jsonPayload, so those exact bytes
+                // must be what goes on the wire: Http::post($url, $string)
+                // JSON-encodes the string a second time, which used to leave
+                // receivers unable to verify X-Signature against the raw body.
+                ->withBody($jsonPayload, 'application/json')
+                ->post($endpoint->url);
 
             // Check if delivery was successful (2xx status code)
             if ($response->successful()) {
