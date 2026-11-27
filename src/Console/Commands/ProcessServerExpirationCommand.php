@@ -19,6 +19,7 @@ use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Events\ExpirationWarning;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerExpired;
 use SquadronStrike\ServerExpiry\Domain\Events\ServerSuspendedByExpiration;
+use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold;
 use SquadronStrike\ServerExpiry\Support\SuspensionContext;
 use SquadronStrike\ServerExpiry\Support\SuspensionGuard;
 use Throwable;
@@ -139,10 +140,10 @@ class ProcessServerExpirationCommand extends Command
             try {
                 Event::dispatch(new ExpirationWarning(
                     $server->id,
-                    \SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\WarningThreshold::fromDays($warningThreshold),
+                    WarningThreshold::fromDays($warningThreshold),
                     new \DateTimeImmutable('now')
                 ));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::error("Server Expiry Plugin: Failed to dispatch ExpirationWarning event for server ID {$server->id}: {$e->getMessage()}");
                 // We still claimed the notification, so we need to mark it as failed to allow retry
                 $this->markNotificationAsFailed(
@@ -228,7 +229,7 @@ class ProcessServerExpirationCommand extends Command
                     $server->id,
                     new \DateTimeImmutable('now')
                 ));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // If the event dispatch fails, we mark the notification as failed and continue
                 $this->markNotificationAsFailed(
                     $server->id,
@@ -245,38 +246,46 @@ class ProcessServerExpirationCommand extends Command
             // Mark that we are about to perform an expiration-based suspension
             // so the Server::updating hook stamps suspension_reason correctly.
             SuspensionContext::setExpirationSuspensionInProgress(true);
+            $daemonSyncFailed = false;
             try {
                 $this->suspensionService->handle($server, SuspendAction::Suspend);
-
-                // Dispatch event that server was successfully suspended due to expiration
-                try {
-                    Event::dispatch(new ServerSuspendedByExpiration(
-                        $server->id,
-                        new \DateTimeImmutable('now')
-                    ));
-                } catch (\Throwable $e) {
-                    Log::error("Server Expiry Plugin: Failed to dispatch ServerSuspendedByExpiration event for server ID {$server->id}: {$e->getMessage()}");
-                    // We still claimed the notification, so we need to mark it as failed to allow retry
-                    $this->markNotificationAsFailed(
-                        $server->id,
-                        'server_expired',
-                        'expiration'
-                    );
-
-                    // Continue to next server
-                    continue;
-                }
-
-                $this->line(
-                    "   -> Suspension dispatched for Server ID {$server->id} (Name: {$server->name}) - Expired at: {$server->expires_at}"
-                );
-                $suspensionCount++;
             } catch (Throwable $exception) {
+                // The panel writes the suspension to its database BEFORE it asks
+                // the daemon to sync, so a sync failure (wings down, node token
+                // misconfigured) can still leave the server actually suspended.
+                // Record the failure, then decide from the database state below.
+                $daemonSyncFailed = true;
                 Log::error(
-                    "Server Expiry Plugin: Failed to suspend server ID {$server->id} ('{$server->name}'): {$exception->getMessage()}"
+                    "Server Expiry Plugin: Daemon sync failed while suspending server ID {$server->id} ('{$server->name}'): {$exception->getMessage()}"
                 );
                 $this->error(
-                    "   -> Failed to suspend server ID {$server->id}: {$exception->getMessage()}"
+                    "   -> Daemon sync failed for server ID {$server->id}: {$exception->getMessage()}"
+                );
+            } finally {
+                // Ensure the flag is cleared after each server, success or failure.
+                SuspensionContext::setExpirationSuspensionInProgress(false);
+            }
+
+            // The event stream must reflect the database state, not the daemon
+            // outcome: consumers gate on server.expiry.suspended to learn the
+            // server is down, and the DB write can have landed even when the
+            // sync call above threw.
+            $server->refresh();
+
+            // Only an expiration suspension gets the expiration event: an admin
+            // suspending the server by hand in this window must not produce a
+            // server.expiry.suspended event.
+            if ($server->isSuspended() && $server->suspension_reason !== 'expiration') {
+                $this->info(
+                    "   -> Server ID {$server->id} is suspended but not by expiration (reason: {$server->suspension_reason}); skipping the expiration event."
+                );
+
+                continue;
+            }
+
+            if (! $server->isSuspended()) {
+                Log::error(
+                    "Server Expiry Plugin: Failed to suspend server ID {$server->id} ('{$server->name}')"
                 );
 
                 // Mark the notification as failed so it can be retried
@@ -288,9 +297,41 @@ class ProcessServerExpirationCommand extends Command
 
                 // Continue with other servers
                 continue;
-            } finally {
-                // Ensure the flag is cleared after each server, success or failure.
-                SuspensionContext::setExpirationSuspensionInProgress(false);
+            }
+
+            // Dispatch event that server was suspended due to expiration
+            try {
+                Event::dispatch(new ServerSuspendedByExpiration(
+                    $server->id,
+                    new \DateTimeImmutable('now')
+                ));
+            } catch (Throwable $e) {
+                Log::error("Server Expiry Plugin: Failed to dispatch ServerSuspendedByExpiration event for server ID {$server->id}: {$e->getMessage()}");
+                // We still claimed the notification, so we need to mark it as failed to allow retry
+                $this->markNotificationAsFailed(
+                    $server->id,
+                    'server_expired',
+                    'expiration'
+                );
+
+                // Continue to next server
+                continue;
+            }
+
+            $this->line(
+                "   -> Suspension dispatched for Server ID {$server->id} (Name: {$server->name}) - Expired at: {$server->expires_at}"
+            );
+            $suspensionCount++;
+
+            if ($daemonSyncFailed) {
+                // The suspension is persisted and the event has been dispatched,
+                // so the notification lifecycle is complete; the daemon drift is
+                // an operational issue (logged above) that retrying the
+                // notification would not repair — SuspensionService no-ops on an
+                // already-suspended server.
+                $this->warn(
+                    "   -> Server ID {$server->id} is suspended in the panel but the daemon did not confirm the sync; check the node."
+                );
             }
         }
 

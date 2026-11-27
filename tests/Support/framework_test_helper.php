@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Carbon\Carbon;
 
 /*
  * Minimal framework stand-ins for tests, in a harness with no Laravel.
@@ -13,15 +14,21 @@ declare(strict_types=1);
 
 if (! function_exists('now')) {
     /**
-     * Laravel's now() helper, reduced to a clock as DateTimeImmutable.
+     * Laravel's now() helper, reduced to a clock.
      *
      * Returns the engine class explicitly (no unqualified reference, which would
-     * fatal from this namespace — the defect these suites guard). Only native
-     * DateTimeImmutable API is used, so the helper — and therefore the portable
-     * claim predicate it feeds — provably needs no Carbon.
+     * fatal from this namespace — the defect these suites guard). Carbon when it
+     * is installed (the behavioral delivery tests exercise code paths that use
+     * Carbon-only methods like addSeconds()/copy(), exactly as the panel
+     * provides them); otherwise a plain DateTimeImmutable, on which the portable
+     * claim predicate still provably runs.
      */
-    function now(): \DateTimeImmutable
+    function now(): DateTimeImmutable
     {
-        return new \DateTimeImmutable('now');
+        if (class_exists(Carbon::class)) {
+            return Carbon::now()->toImmutable();
+        }
+
+        return new DateTimeImmutable('now');
     }
 }

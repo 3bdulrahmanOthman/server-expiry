@@ -15,8 +15,15 @@ use PHPUnit\Framework\TestCase;
  *   ExpirationService::processExpiration() eligibility →
  *   idempotency claim → ServerExpired event →
  *   SuspensionContext flag → SuspensionService::handle() →
- *   Server::updating hook stamps the reason →
- *   ServerSuspendedByExpiration event → flag cleared in finally
+ *   Server::updating hook stamps the reason → flag cleared in finally →
+ *   refresh → suspended-in-database gate → ServerSuspendedByExpiration event
+ *
+ * The event dispatches on the DATABASE state, not the daemon outcome: the
+ * panel writes the suspension before it asks wings to sync, so a sync failure
+ * can still leave the server actually suspended — and consumers gate on
+ * server.expiry.suspended to learn the server is down. (Verified live against
+ * Pelican rc.2: with wings unreachable the DB suspension landed while the
+ * event never fired.)
  *
  * The command body cannot execute inside this plugin-only test harness (it
  * drives Eloquent, the panel's SuspensionService and Laravel helpers), so —
@@ -229,6 +236,83 @@ final class LifecycleSuspensionWiringTest extends TestCase
         $this->assertNotFalse($flagPosition);
         $this->assertNotFalse($handlePosition);
         $this->assertLessThan($handlePosition, $flagPosition);
+    }
+
+    /**
+     * Regression guard for the suspended-event decoupling: previously the
+     * ServerSuspendedByExpiration dispatch sat after SuspensionService::handle
+     * inside the same try, so a daemon-sync exception skipped the event even
+     * though the DB suspension had already been written.
+     */
+    public function test_suspended_event_dispatches_on_database_state_not_daemon_outcome(): void
+    {
+        $command = $this->source(self::COMMAND);
+
+        $handlePosition = strpos($command, '$this->suspensionService->handle($server, SuspendAction::Suspend)');
+        $finallyPosition = strpos(
+            $command,
+            'SuspensionContext::setExpirationSuspensionInProgress(false)',
+            (int) $handlePosition
+        );
+        $refreshPosition = strpos($command, '$server->refresh();', (int) $handlePosition);
+        $gatePosition = strpos($command, 'if (! $server->isSuspended())', (int) $refreshPosition);
+        $dispatchPosition = strpos($command, 'Event::dispatch(new ServerSuspendedByExpiration(');
+
+        $this->assertNotFalse($handlePosition);
+        $this->assertNotFalse($finallyPosition);
+        $this->assertNotFalse($refreshPosition, 'The command must re-read the server before deciding');
+        $this->assertNotFalse($gatePosition, 'The event must be gated on the database suspension state');
+        $this->assertNotFalse($dispatchPosition);
+
+        $this->assertLessThan($refreshPosition, $finallyPosition, 'The sync attempt (and its finally) must complete before the state re-read');
+        $this->assertLessThan($gatePosition, $refreshPosition, 'The database state must be re-read before the gate');
+        $this->assertLessThan($dispatchPosition, $gatePosition, 'The suspended event must follow the database-state gate');
+        $this->assertLessThan(
+            $refreshPosition,
+            $handlePosition,
+            'The state re-read must come after the suspension attempt'
+        );
+    }
+
+    public function test_the_suspended_event_only_fires_for_expiration_suspensions(): void
+    {
+        $command = $this->source(self::COMMAND);
+
+        $refreshPosition = strpos($command, '$server->refresh();', (int) strpos($command, 'SuspensionService::handle'));
+        $reasonPosition = strpos($command, "\$server->suspension_reason !== 'expiration'", (int) $refreshPosition);
+        $dispatchPosition = strpos($command, 'Event::dispatch(new ServerSuspendedByExpiration(');
+
+        $this->assertNotFalse(
+            $reasonPosition,
+            'After the refresh, an expiration suspension must be confirmed by suspension_reason before the event'
+        );
+        $this->assertLessThan(
+            $dispatchPosition,
+            $reasonPosition,
+            'A server suspended by hand in the suspension window must never emit server.expiry.suspended'
+        );
+    }
+
+    public function test_a_daemon_sync_failure_is_logged_but_does_not_skip_the_event(): void
+    {
+        $command = $this->source(self::COMMAND);
+
+        // The suspension try/catch must record the sync failure and continue to
+        // the state check instead of skipping the server outright.
+        $this->assertStringContainsString('$daemonSyncFailed = true;', $command);
+        $this->assertStringContainsString(
+            'Daemon sync failed while suspending server ID',
+            $command,
+            'A sync failure must be logged as the daemon problem it is'
+        );
+
+        // When the DB write did land, the run is reported honestly: suspension
+        // persisted, event dispatched, daemon drift surfaced as a warning.
+        $this->assertStringContainsString(
+            'is suspended in the panel but the daemon did not confirm the sync',
+            $command,
+            'The operator must see the persisted-vs-synced divergence'
+        );
     }
 
     private function source(string $path): string

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace SquadronStrike\ServerExpiry\Http\Controllers\Api\Application\Servers;
 
+use App\Enums\SuspendAction;
 use App\Http\Controllers\Api\Application\ApplicationApiController;
 use App\Models\Server;
+use App\Services\Servers\SuspensionService;
 use DateTimeInterface;
+use Illuminate\Support\Facades\Log;
 use SquadronStrike\ServerExpiry\Application\Services\ExpirationService;
 use SquadronStrike\ServerExpiry\Domain\Expiration\Exceptions\InvalidExpirationOperation;
 use SquadronStrike\ServerExpiry\Domain\Expiration\ValueObjects\ExpirationDate;
@@ -15,6 +18,7 @@ use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ExtendExpi
 use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\RenewExpirationRequest;
 use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\ShowExpirationRequest;
 use SquadronStrike\ServerExpiry\Http\Requests\Api\Application\Servers\UpdateExpirationRequest;
+use Throwable;
 
 /**
  * Handles API endpoints for server expiration management.
@@ -98,6 +102,8 @@ class ExpirationController extends ApplicationApiController
 
         if ($data['permanent'] ?? false) {
             $this->expirationService->clearExpiration($server->id);
+
+            $this->reviveAfterRenewal($server, ExpirationDate::permanent());
         } else {
             if (! isset($data['expires_at'])) {
                 return response()->json([
@@ -107,9 +113,45 @@ class ExpirationController extends ApplicationApiController
 
             $expirationDate = ExpirationDate::fromString($data['expires_at']);
             $this->expirationService->renew($server->id, $expirationDate);
+
+            $this->reviveAfterRenewal($server, $expirationDate);
         }
 
         return response()->json(['message' => 'Server renewed']);
+    }
+
+    /**
+     * Mirror the admin UI's renewal behaviour: a renewed server that was
+     * suspended because it expired comes back up, and its warning thresholds
+     * reset so reminders start over for the new date.
+     *
+     * Without this the API and the UI disagree on the same operation: the UI
+     * revives on renewal, the API used to leave the server suspended.
+     */
+    private function reviveAfterRenewal(Server $server, ExpirationDate $newExpirationDate): void
+    {
+        // A past date is not a revival; the lifecycle will handle the expiry.
+        if (! $newExpirationDate->isPermanent() && $newExpirationDate->isExpired()) {
+            return;
+        }
+
+        $server->forceFill(['expiry_warning_day' => null])->saveQuietly();
+
+        // Only unsuspend if the suspension was due to expiration.
+        if (! $server->isSuspended() || $server->suspension_reason !== 'expiration') {
+            return;
+        }
+
+        try {
+            app(SuspensionService::class)->handle($server, SuspendAction::Unsuspend);
+        } catch (Throwable $exception) {
+            // The renewal itself succeeded; a daemon sync failure here must not
+            // fail the request. The panel applies the unsuspension to its
+            // database before talking to the daemon.
+            report($exception);
+
+            Log::warning("Server Expiry Plugin: revival of server ID {$server->id} failed after renewal: {$exception->getMessage()}");
+        }
     }
 
     public function destroy(ClearExpirationRequest $request, Server $server)

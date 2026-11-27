@@ -24,6 +24,9 @@
         }
     },
     "require-dev": {
+        "guzzlehttp/guzzle": "^7.9",
+        "illuminate/database": "^13.0",
+        "illuminate/http": "^13.0",
         "laravel/pint": "^1.16",
         "phpunit/phpunit": "^11.5"
     },
