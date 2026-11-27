@@ -90,6 +90,46 @@ final class PluginSettingsTest extends TestCase
         }
     }
 
+    /**
+     * Pelican rc.3 convention (official plugins, pelican/plugins@c2c6547):
+     * settings form fields declare no ->default(). The panel fills the modal
+     * from getSettingsFormData(), so a default is redundant, and a config()
+     * closure there would show the file value instead of the saved one when
+     * they diverge. Every field key must still be present in the form data.
+     */
+    public function test_settings_form_declares_no_field_defaults(): void
+    {
+        $source = $this->source(self::PLUGIN);
+
+        $form = $this->extractMethodBody($source, 'getSettingsForm');
+
+        $this->assertStringNotContainsString(
+            '->default(',
+            $form,
+            'Settings form fields must not declare ->default() (Pelican rc.3 convention; values come from getSettingsFormData)'
+        );
+    }
+
+    public function test_form_data_covers_every_settings_field(): void
+    {
+        $source = $this->source(self::PLUGIN);
+
+        $data = $this->extractMethodBody($source, 'getSettingsFormData');
+
+        $this->assertStringContainsString("config('server-expiry')", $data, 'getSettingsFormData must seed from the plugin config');
+        $this->assertStringContainsString("implode(',', (array) \$data['warning_days_notice'])", $data, 'warning_days_notice must be flattened for the text field');
+    }
+
+    private function extractMethodBody(string $source, string $method): string
+    {
+        $start = strpos($source, "function {$method}()");
+        $this->assertNotFalse($start, "Method {$method} not found");
+
+        $next = strpos($source, "\n    public function", $start);
+
+        return substr($source, $start, $next === false ? null : $next - $start);
+    }
+
     private function source(string $path): string
     {
         return (string) file_get_contents($path);

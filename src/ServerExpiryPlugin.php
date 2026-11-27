@@ -230,25 +230,21 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                     Toggle::make('auto_suspend_enabled')
                         ->label(trans('server-expiry::strings.settings_auto_suspend_label'))
                         ->helperText(trans('server-expiry::strings.settings_auto_suspend_helper'))
-                        ->inline(false)
-                        ->default(fn () => config('server-expiry.auto_suspend_enabled')),
+                        ->inline(false),
                     TextInput::make('grace_period_hours')
                         ->label(trans('server-expiry::strings.settings_grace_label'))
                         ->helperText(trans('server-expiry::strings.settings_grace_helper'))
                         ->numeric()
-                        ->minValue(0)
-                        ->default(fn () => config('server-expiry.grace_period_hours')),
+                        ->minValue(0),
                     TextInput::make('warning_days_notice')
                         ->label(trans('server-expiry::strings.settings_warning_label'))
                         ->helperText(trans('server-expiry::strings.settings_warning_helper'))
                         ->placeholder('7,3,1')
-                        ->rules(['regex:/^\s*\d+\s*(,\s*\d+\s*)*$/'])
-                        ->default(fn () => implode(',', config('server-expiry.warning_days_notice'))),
+                        ->rules(['regex:/^\s*\d+\s*(,\s*\d+\s*)*$/']),
                     Toggle::make('notify_owner_on_suspend')
                         ->label(trans('server-expiry::strings.settings_notify_label'))
                         ->helperText(trans('server-expiry::strings.settings_notify_helper'))
-                        ->inline(false)
-                        ->default(fn () => config('server-expiry.notify_owner_on_suspend')),
+                        ->inline(false),
                 ])
                 ->columns(2),
 
@@ -260,8 +256,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                         ->helperText(trans('server-expiry::strings.settings_webhook_max_attempts_helper'))
                         ->numeric()
                         ->minValue(1)
-                        ->maxValue(10)
-                        ->default(fn () => config('server-expiry.webhook_max_attempts', 3)),
+                        ->maxValue(10),
                     TextInput::make('webhook_timeout_seconds')
                         ->label(trans('server-expiry::strings.settings_webhook_timeout_label'))
                         ->helperText(trans('server-expiry::strings.settings_webhook_timeout_helper'))
@@ -270,15 +265,13 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                         // Bounded to one minute: retries run sequentially under a
                         // scheduler mutex, so a larger per-request timeout can stall
                         // the whole retry pass. See WebhookDeliveryService::timeoutSeconds().
-                        ->maxValue(60)
-                        ->default(fn () => config('server-expiry.webhook_timeout_seconds', 10)),
+                        ->maxValue(60),
                     TextInput::make('webhook_backoff_base_seconds')
                         ->label(trans('server-expiry::strings.settings_webhook_backoff_label'))
                         ->helperText(trans('server-expiry::strings.settings_webhook_backoff_helper'))
                         ->numeric()
                         ->minValue(1)
-                        ->maxValue(3600)
-                        ->default(fn () => config('server-expiry.webhook_backoff_base_seconds', 1)),
+                        ->maxValue(3600),
                 ])
                 ->columns(3),
 
@@ -296,8 +289,7 @@ class ServerExpiryPlugin implements HasPluginSettings, Plugin
                         // link always points at a web URL.
                         ->rule('url:http,https')
                         ->nullable()
-                        ->maxLength(2048)
-                        ->default(fn () => config('server-expiry.support_url', '')),
+                        ->maxLength(2048),
                 ])
                 ->columns(1),
         ];
