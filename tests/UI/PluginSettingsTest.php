@@ -125,7 +125,7 @@ final class PluginSettingsTest extends TestCase
         $start = strpos($source, "function {$method}()");
         $this->assertNotFalse($start, "Method {$method} not found");
 
-        $next = strpos($source, '\n    public function', $start);
+        $next = strpos($source, "\n    public function", $start);
 
         return substr($source, $start, $next === false ? null : $next - $start);
     }
